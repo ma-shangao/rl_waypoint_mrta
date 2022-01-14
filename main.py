@@ -49,9 +49,9 @@ def train_step(inputs):
     return model.losses[0], model.losses[1], S_pool
 
 
-node_num = 300  # 节点个数
+node_num = 500  # 节点个数
 n_x_dims = 3  # 节点特征维度
-cluster_num = 3  # 聚类个数k
+cluster_num = 4  # 聚类个数k
 num_KNN = 4  # K nearset neighbour parameter
 
 n_channels = 16
@@ -60,20 +60,23 @@ np.random.seed(1)
 epochs = 5000  # Training iterations
 lr = 5e-4  # Learning rate
 
-data = 'blob'  # 'blob', 'swiss roll'
+data = 'swiss roll'  # 'blob', 'swiss roll'
+data_random_state = 1
 
 ###########################################################################
 # Prepare the data
 ###########################################################################
 if data == 'blob':
-    X, y = make_blobs(n_samples=node_num, centers=cluster_num, n_features=n_x_dims, random_state=None)
+    X, y = make_blobs(n_samples=node_num, centers=cluster_num, n_features=n_x_dims, random_state=data_random_state)
     # n_clust = y.max() + 1
 
 elif data == 'swiss roll':
-    X, t = make_swiss_roll(n_samples=node_num, noise=0.2)
+    X, t = make_swiss_roll(n_samples=node_num, noise=0.2, random_state=data_random_state)
 
 X = X.astype(np.float32)
 A = kneighbors_graph(X, n_neighbors=num_KNN, mode='distance').todense()
+# argument explanation: mode='distance', weighted adjacency matrix, mode=’connectivity’, binary adjacency matrix
+
 A = np.asarray(A)
 A = np.maximum(A, A.T)
 A = sp.csr_matrix(A, dtype=np.float32)
