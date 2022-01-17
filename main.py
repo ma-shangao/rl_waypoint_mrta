@@ -10,11 +10,9 @@ from sklearn.cluster import k_means
 from spektral.utils.convolution import normalized_adjacency
 from spektral.layers.convolutional import GCSConv
 from spektral.layers import MinCutPool
-
-from sklearn.metrics.cluster import completeness_score, homogeneity_score, v_measure_score
+# from sklearn.metrics.cluster import completeness_score, homogeneity_score, v_measure_score
 
 from tensorflow.keras import Input, Model
-
 import scipy.sparse as sp
 
 from tsp_solver import tsp_solve
