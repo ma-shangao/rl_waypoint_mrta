@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+import os
 
 from sklearn.datasets import make_blobs, make_swiss_roll
 from sklearn.neighbors import kneighbors_graph
@@ -10,7 +11,7 @@ from sklearn.cluster import k_means
 from spektral.utils.convolution import normalized_adjacency
 from spektral.layers.convolutional import GCSConv
 from spektral.layers import MinCutPool
-# from sklearn.metrics.cluster import completeness_score, homogeneity_score, v_measure_score
+from sklearn.metrics.cluster import completeness_score, homogeneity_score, v_measure_score
 
 from tensorflow.keras import Input, Model
 import scipy.sparse as sp
@@ -47,29 +48,35 @@ def train_step(inputs):
     return model.losses[0], model.losses[1], S_pool
 
 
-node_num = 500  # 节点个数
-n_x_dims = 3  # 节点特征维度
-cluster_num = 4  # 聚类个数k
-num_KNN = 4  # K nearset neighbour parameter
-
+num_KNN = 400  # K nearset neighbour parameter
 n_channels = 16
+import_data = True
 
-np.random.seed(1)
-epochs = 5000  # Training iterations
-lr = 5e-4  # Learning rate
+if import_data:
+    from cifar10loader import unpickle
+    cifar_data = unpickle(os.path.join('cifar-10-batches-py', 'data_batch_2'))
 
-data = 'swiss roll'  # 'blob', 'swiss roll'
-data_random_state = 1
+    X = cifar_data[b'data']
+    y = cifar_data[b'labels']
+    cluster_num = 10  # 聚类个数k
 
-###########################################################################
-# Prepare the data
-###########################################################################
-if data == 'blob':
-    X, y = make_blobs(n_samples=node_num, centers=cluster_num, n_features=n_x_dims, random_state=data_random_state)
-    # n_clust = y.max() + 1
+else:
+    node_num = 500  # 节点个数
+    n_x_dims = 3  # 节点特征维度
+    cluster_num = 4  # 聚类个数k
 
-elif data == 'swiss roll':
-    X, t = make_swiss_roll(n_samples=node_num, noise=0.2, random_state=data_random_state)
+    data = 'swiss roll'  # 'blob', 'swiss roll'
+    data_random_state = 1
+
+    ###########################################################################
+    # Prepare the data
+    ###########################################################################
+    if data == 'blob':
+        X, y = make_blobs(n_samples=node_num, centers=cluster_num, n_features=n_x_dims, random_state=data_random_state)
+        # n_clust = y.max() + 1
+
+    elif data == 'swiss roll':
+        X, t = make_swiss_roll(n_samples=node_num, noise=0.2, random_state=data_random_state)
 
 X = X.astype(np.float32)
 A = kneighbors_graph(X, n_neighbors=num_KNN, mode='distance').todense()
@@ -84,7 +91,11 @@ A_norm = sp_matrix_to_sp_tensor(A_norm)
 ############################################################################
 # MODEL
 ############################################################################
-X_in = Input(shape=(n_x_dims,), name='X_in', dtype='float32')
+np.random.seed(1)
+epochs = 5000  # Training iterations
+lr = 5e-4  # Learning rate
+
+X_in = Input(shape=(X.shape[1],), name='X_in', dtype='float32')
 A_in = Input(shape=(None, None), name='A_in', dtype='float32', sparse=True)
 
 X_1 = GCSConv(channels=n_channels, activation='elu')([X_in, A_in])
@@ -118,11 +129,11 @@ loss_history = np.array(loss_history)
 _, s_out = model(inputs, training=False)
 s_out = np.argmax(s_out, axis=-1)
 
-# # Labels analysis
-# hom = homogeneity_score(y, s_out)
-# com = completeness_score(y, s_out)
-# nmi = v_measure_score(y, s_out)
-# print("Homogeneity: {:.3f}; Completeness: {:.3f}; NMI: {:.3f}".format(hom, com, nmi))
+# Labels analysis
+hom = homogeneity_score(y, s_out)
+com = completeness_score(y, s_out)
+nmi = v_measure_score(y, s_out)
+print("GNN clustering, Homogeneity: {:.3f}; Completeness: {:.3f}; NMI: {:.3f}".format(hom, com, nmi))
 
 ################################################################################
 # Comparison with k-means
@@ -130,22 +141,28 @@ s_out = np.argmax(s_out, axis=-1)
 
 _, kMeans_out, _ = k_means(X, n_clusters=cluster_num)
 
-# # Plots
-# plt.figure(figsize=(10, 5))
-#
-# plt.subplot(121)
-# plt.plot(loss_history[:, 0], label="MinCUT loss")
-# plt.plot(loss_history[:, 1], label="Ortho. loss")
-# plt.plot(loss_history[:, 2], label="Total loss")
-# plt.legend()
-# plt.ylabel("Loss")
-# plt.xlabel("Iteration")
-#
-# plt.subplot(122)
-# plt.plot(nmi_history, label="NMI")
-# plt.legend()
-# plt.ylabel("NMI")
-# plt.xlabel("Iteration")
+# Labels analysis
+hom = homogeneity_score(y, kMeans_out)
+com = completeness_score(y, kMeans_out)
+nmi = v_measure_score(y, kMeans_out)
+print("k-means clustering, Homogeneity: {:.3f}; Completeness: {:.3f}; NMI: {:.3f}".format(hom, com, nmi))
+
+# Plots
+plt.figure(figsize=(10, 5))
+
+plt.subplot(121)
+plt.plot(loss_history[:, 0], label="MinCUT loss")
+plt.plot(loss_history[:, 1], label="Ortho. loss")
+plt.plot(loss_history[:, 2], label="Total loss")
+plt.legend()
+plt.ylabel("Loss")
+plt.xlabel("Iteration")
+
+plt.subplot(122)
+plt.plot(nmi_history, label="NMI")
+plt.legend()
+plt.ylabel("NMI")
+plt.xlabel("Iteration")
 
 ################################################################################
 # Visualisation of data
