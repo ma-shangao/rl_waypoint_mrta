@@ -17,25 +17,7 @@ from tensorflow.keras import Input, Model
 import scipy.sparse as sp
 
 from tsp_solver import tsp_solve
-
-def sp_matrix_to_sp_tensor(x):
-    """
-    Converts a Scipy sparse matrix to a tf.SparseTensor
-    :param x: a Scipy sparse matrix
-    :return: tf.SparseTensor
-    """
-    if not hasattr(x, 'tocoo'):
-        try:
-            x = sp.coo_matrix(x)
-        except:
-            raise TypeError('x must be convertible to scipy.coo_matrix')
-    else:
-        x = x.tocoo()
-    return tf.SparseTensor(
-        indices=np.array([x.row, x.col]).T,
-        values=x.data,
-        dense_shape=x.shape
-    )
+from spek_gnn_clustering import sp_matrix_to_sp_tensor
 
 
 @tf.function
@@ -48,7 +30,7 @@ def train_step(inputs):
     return model.losses[0], model.losses[1], S_pool
 
 
-num_KNN = 400  # K nearset neighbour parameter
+num_KNN = 20  # K nearset neighbour parameter
 n_channels = 16
 import_data = True
 
@@ -58,6 +40,15 @@ if import_data:
 
     X = cifar_data[b'data']
     y = cifar_data[b'labels']
+
+    X = X.reshape(10000, 3, 32, 32).transpose(0, 2, 3, 1).astype("uint8")
+    # plt.imshow(image_batch[5])
+
+    image_batch = tf.convert_to_tensor(X)
+    for i in range(10000):
+        X[i] = tf.image.per_image_standardization(image_batch[i]).numpy()
+        # normalise
+    X = X.reshape((10000, -1))
     cluster_num = 10  # 聚类个数k
 
 else:
@@ -92,7 +83,7 @@ A_norm = sp_matrix_to_sp_tensor(A_norm)
 # MODEL
 ############################################################################
 np.random.seed(1)
-epochs = 5000  # Training iterations
+epochs = 2000  # Training iterations
 lr = 5e-4  # Learning rate
 
 X_in = Input(shape=(X.shape[1],), name='X_in', dtype='float32')
@@ -121,7 +112,7 @@ for _ in tqdm(range(epochs)):
     outs = [o.numpy() for o in outs]
     loss_history.append((outs[0], outs[1], (outs[0] + outs[1])))
     s_out = np.argmax(outs[2], axis=-1)
-    # nmi_history.append(v_measure_score(y, s_out))
+    nmi_history.append(v_measure_score(y, s_out))
 loss_history = np.array(loss_history)
 ################################################################################
 # RESULTS
