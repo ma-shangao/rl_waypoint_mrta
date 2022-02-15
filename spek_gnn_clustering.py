@@ -11,6 +11,8 @@ from spektral.layers import MinCutPool
 from spektral.utils.convolution import normalized_adjacency
 from sklearn.metrics.cluster import v_measure_score
 
+# from rl_tsp_solver import rl_tsp_solver
+# from tsp_solver import tsp_solve
 
 def sp_matrix_to_sp_tensor(x):
     """
@@ -49,7 +51,7 @@ def _normalise_adj(adj_matrix):
 
 
 class GnnClustering:
-    def __init__(self, cluster_num, num_knn=20, knn_mode='distance', n_channels=16):
+    def __init__(self, cluster_num, num_knn=5, knn_mode='distance', n_channels=16, tsp_feedback=False):
         self.s_out = None
         self.adj_matrix = None
         self.inputs = None
@@ -59,6 +61,7 @@ class GnnClustering:
         self.cluster_num = cluster_num
         self.num_knn = num_knn
         self.knn_mode = knn_mode
+        self.tsp_feedback = tsp_feedback
 
     def _model_setup(self, dim_feature):
         x_in = Input(shape=(dim_feature,), name='X_in', dtype='float32')
