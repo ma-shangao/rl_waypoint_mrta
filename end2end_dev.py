@@ -116,7 +116,7 @@ if __name__ ==  '__main__':
 
     num_clusters = 3
     feature_dim = 2
-    batch_size = 128
+    batch_size = 16
     lamb = 1
     max_grad_norm = 1.0
 
@@ -132,7 +132,7 @@ if __name__ ==  '__main__':
         X = batch
 
         adj_norm = knn_graph_norm_adj(X, num_knn=8, knn_mode='distance')
-        adj_norm = torch.tensor(adj_norm)
+        adj_norm = torch.tensor(adj_norm, dtype=torch.float32)
 
         s = c_mlp_model(X)
         # s.shape == (batch, N, K)
@@ -150,14 +150,17 @@ if __name__ ==  '__main__':
             R_d = []
 
             for cluster in range(num_clusters):
-                ind_c = torch.nonzero(s_hard == cluster, as_tuple=False).squeeze()
-                X_i = X[ind_c]
-                X_c.append(X_i)
-                pi_i, dist_i = tsp_solve(X_i)
-                pi.append(pi_i)
-                R_d.append(dist_i)
+                ind_c = torch.nonzero(s_hard[m, :] == cluster, as_tuple=False).squeeze()
+                if ind_c.numpy().shape == (0,):
+                    R_d.append(0)
+                else:
+                    X_i = X[m, ind_c, :]
+                    X_c.append(X_i)
+                    pi_i, dist_i = tsp_solve(X_i)
+                    pi.append(pi_i)
+                    R_d.append(dist_i)
 
-            cost_d[m] = sum(R_d)
+            cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
 
         Reward = (1 - lamb)*cost_d + lamb*(Rcc + Rco)
 
