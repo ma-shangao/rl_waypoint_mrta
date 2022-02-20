@@ -83,7 +83,7 @@ def calc_log_likelihood(_log_p, a, mask):
     # Get log_p corresponding to selected actions
     log_p = _log_p.gather(2, a.unsqueeze(-1)).squeeze(-1)
 
-    # Optional: mask out actions irrelevant to objective so they do not get reinforced
+    # Optional: mask out actions irrelevant to objective, so they do not get reinforced
     if mask is not None:
         log_p[mask] = 0
 
@@ -112,12 +112,13 @@ def clip_grad_norms(param_groups, max_norm=math.inf):
     return grad_norms, grad_norms_clipped
 
 
-if __name__ ==  '__main__':
+if __name__ == '__main__':
 
     num_clusters = 3
     feature_dim = 2
     batch_size = 16
-    lamb = 1
+    lamb = 0.9
+    lamb_decay = 0.99
     max_grad_norm = 1.0
 
     dataset = TSPDataset(size=50, num_samples=1000000)
@@ -164,8 +165,10 @@ if __name__ ==  '__main__':
 
         Reward = (1 - lamb)*cost_d + lamb*(Rcc + Rco)
 
-        base_line = Reward.mean()
-        reinforce_loss = ((Reward - base_line) * ll).mean()
+        # base_line = Reward.mean()
+        # add baseline later
+        # reinforce_loss = ((Reward - base_line) * ll).mean()
+        reinforce_loss = (Reward * ll).mean()
 
         # Perform backward pass and optimization step
         optimizer.zero_grad()
@@ -174,3 +177,6 @@ if __name__ ==  '__main__':
         grad_norms = clip_grad_norms(optimizer.param_groups, max_grad_norm)
 
         optimizer.step()
+        lamb = lamb*lamb_decay
+        if batch_id % 1 == 0:
+            print("loss: {}".format(reinforce_loss))
