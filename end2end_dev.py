@@ -79,7 +79,6 @@ def knn_graph_norm_adj(x, num_knn=8, knn_mode='distance'):
 
 
 def calc_log_likelihood(_log_p, a, mask):
-
     # Get log_p corresponding to selected actions
     log_p = _log_p.gather(2, a.unsqueeze(-1)).squeeze(-1)
 
@@ -116,9 +115,9 @@ if __name__ == '__main__':
 
     num_clusters = 3
     feature_dim = 2
-    batch_size = 16
-    lamb = 0.9
-    lamb_decay = 0.99
+    batch_size = 64
+    lamb = 0.99
+    lamb_decay = 0.999
     max_grad_norm = 1.0
 
     dataset = TSPDataset(size=50, num_samples=1000000)
@@ -152,8 +151,9 @@ if __name__ == '__main__':
 
             for cluster in range(num_clusters):
                 ind_c = torch.nonzero(s_hard[m, :] == cluster, as_tuple=False).squeeze()
-                if ind_c.numpy().shape == (0,):
-                    R_d.append(0)
+                if ind_c.numpy().shape == (0,) or ind_c.shape == torch.Size([]):
+                    degeneration_flag = True
+                    degeneration_ind = []
                 else:
                     X_i = X[m, ind_c, :]
                     X_c.append(X_i)
@@ -161,9 +161,15 @@ if __name__ == '__main__':
                     pi.append(pi_i)
                     R_d.append(dist_i)
 
-            cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
+            if degeneration_flag:
+                degeneration_ind.append(m)
+                cost_d[m] = 0
+            else:
+                cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
 
-        Reward = (1 - lamb)*cost_d + lamb*(Rcc + Rco)
+        if degeneration_flag:
+            cost_d[degeneration_ind] = 10 * cost_d.max()
+        Reward = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
 
         # base_line = Reward.mean()
         # add baseline later
@@ -177,6 +183,6 @@ if __name__ == '__main__':
         grad_norms = clip_grad_norms(optimizer.param_groups, max_grad_norm)
 
         optimizer.step()
-        lamb = lamb*lamb_decay
+        lamb = lamb * lamb_decay
         if batch_id % 1 == 0:
             print("loss: {}".format(reinforce_loss))
