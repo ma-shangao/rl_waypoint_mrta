@@ -10,6 +10,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch_geometric.nn import dense_mincut_pool
 from spektral.utils import normalized_adjacency
+from torch.distributions.categorical import Categorical
 
 from sklearn.neighbors import kneighbors_graph
 import scipy.sparse as sp
@@ -120,6 +121,15 @@ if __name__ == '__main__':
     lamb_decay = 0.999
     max_grad_norm = 1.0
 
+    # make function to compute action distribution
+    def get_policy(obs):
+        logits = c_mlp_model(obs)
+        return Categorical(logits=logits)
+
+    # make action selection function (outputs int actions, sampled from policy)
+    def get_action(obs):
+        return get_policy(obs).sample()
+
     dataset = TSPDataset(size=50, num_samples=1000000)
     train_iterator = DataLoader(dataset, batch_size=batch_size, num_workers=1)
 
@@ -134,12 +144,16 @@ if __name__ == '__main__':
         adj_norm = knn_graph_norm_adj(X, num_knn=8, knn_mode='distance')
         adj_norm = torch.tensor(adj_norm, dtype=torch.float32)
 
-        s = c_mlp_model(X)
-        # s.shape == (batch, N, K)
-        s_hard = torch.argmax(s, dim=-1, keepdim=False)
+        # s = c_mlp_model(X)
+        # # s.shape == (batch, N, K)
+
+        a = get_action(X)
+        # a.shape == (batch, N)
+
+        # s_hard = torch.argmax(s, dim=-1, keepdim=False)
         # s_hard.shape == (batch, N)
 
-        ll = calc_log_likelihood(s, s_hard, mask=None)
+        ll = calc_log_likelihood(s, a, mask=None)
 
         _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, s)
 
