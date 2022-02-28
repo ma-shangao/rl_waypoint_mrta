@@ -145,7 +145,7 @@ if __name__ == '__main__':
         adj_norm = torch.tensor(adj_norm, dtype=torch.float32)
 
         # s = c_mlp_model(X)
-        # # s.shape == (batch, N, K)
+        # s.shape == (batch, N, K)
 
         a = get_action(X)
         # a.shape == (batch, N)
@@ -153,9 +153,12 @@ if __name__ == '__main__':
         # s_hard = torch.argmax(s, dim=-1, keepdim=False)
         # s_hard.shape == (batch, N)
 
-        ll = calc_log_likelihood(s, a, mask=None)
+        ll = get_policy(X).log_prob(a).sum(1)
+        assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
-        _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, s)
+        # ll = calc_log_likelihood(s, a, mask=None)
+
+        _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, get_policy(X).logits)
 
         cost_d = torch.tensor(data=np.zeros(batch_size))
         for m in range(batch_size):
@@ -164,7 +167,7 @@ if __name__ == '__main__':
             R_d = []
 
             for cluster in range(num_clusters):
-                ind_c = torch.nonzero(s_hard[m, :] == cluster, as_tuple=False).squeeze()
+                ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
                 if ind_c.numpy().shape == (0,) or ind_c.shape == torch.Size([]):
                     degeneration_flag = True
                     degeneration_ind = []
