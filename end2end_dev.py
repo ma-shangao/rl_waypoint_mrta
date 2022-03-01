@@ -140,6 +140,7 @@ if __name__ == '__main__':
 
         training_reward_log = []
         loss_log = []
+        grad_norms_log = []
 
         X = batch
 
@@ -204,6 +205,7 @@ if __name__ == '__main__':
         reinforce_loss.backward()
         # Clip gradient norms and get (clipped) gradient norms for logging
         grad_norms = clip_grad_norms(optimizer.param_groups, max_grad_norm)
+        grad_norms_log.append(grad_norms)
 
         optimizer.step()
         lamb = lamb * lamb_decay
