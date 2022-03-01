@@ -13,7 +13,6 @@ from spektral.utils import normalized_adjacency
 from torch.distributions.categorical import Categorical
 
 from sklearn.neighbors import kneighbors_graph
-import scipy.sparse as sp
 
 from tsp_solver import tsp_solve
 
@@ -139,6 +138,9 @@ if __name__ == '__main__':
 
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
 
+        training_reward_log = []
+        loss_log = []
+
         X = batch
 
         adj_norm = knn_graph_norm_adj(X, num_knn=8, knn_mode='distance')
@@ -166,6 +168,8 @@ if __name__ == '__main__':
             pi = []
             R_d = []
 
+            degeneration_flag = None
+
             for cluster in range(num_clusters):
                 ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
                 if ind_c.numpy().shape == (0,) or ind_c.shape == torch.Size([]):
@@ -178,20 +182,22 @@ if __name__ == '__main__':
                     pi.append(pi_i)
                     R_d.append(dist_i)
 
-            if degeneration_flag:
+            if degeneration_flag is True:
                 degeneration_ind.append(m)
                 cost_d[m] = 0
             else:
                 cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
 
-        if degeneration_flag:
+        if degeneration_flag is True:
             cost_d[degeneration_ind] = 10 * cost_d.max()
         Reward = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
+        training_reward_log.append(Reward)
 
         # base_line = Reward.mean()
         # add baseline later
         # reinforce_loss = ((Reward - base_line) * ll).mean()
         reinforce_loss = (Reward * ll).mean()
+        loss_log.append(reinforce_loss)
 
         # Perform backward pass and optimization step
         optimizer.zero_grad()
