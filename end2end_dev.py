@@ -6,33 +6,17 @@ from tqdm import tqdm
 
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torch import nn
-import torch.nn.functional as F
+
 from torch_geometric.nn import dense_mincut_pool
 from spektral.utils import normalized_adjacency
 from torch.distributions.categorical import Categorical
 
 from sklearn.neighbors import kneighbors_graph
 
+from matplotlib import pyplot as plt
+
 from tsp_solver import tsp_solve
-
-
-class ClusteringMLP(nn.Module):
-    def __init__(self, k, input_dim, hidden_dim=8):
-        super().__init__()
-        self.input_fc = nn.Linear(input_dim, hidden_dim)
-        self.hidden_fc = nn.Linear(hidden_dim, hidden_dim)
-        self.output_fc = nn.Linear(hidden_dim, k)
-
-    def forward(self, x):
-        # x = [batch size, height, width]
-
-        h_1 = F.relu(self.input_fc(x))
-        h_2 = F.relu(self.hidden_fc(h_1))
-
-        s = F.softmax(self.output_fc(h_2), dim=-1)
-
-        return s
+from clustering_model import ClusteringMLP
 
 
 class TSPDataset(Dataset):
@@ -115,9 +99,9 @@ if __name__ == '__main__':
 
     num_clusters = 3
     feature_dim = 2
-    batch_size = 64
+    batch_size = 128
     lamb = 0.99
-    lamb_decay = 0.999
+    lamb_decay = 0.99
     max_grad_norm = 1.0
 
     # make function to compute action distribution
@@ -129,18 +113,18 @@ if __name__ == '__main__':
     def get_action(obs):
         return get_policy(obs).sample()
 
-    dataset = TSPDataset(size=50, num_samples=1000000)
+    dataset = TSPDataset(size=20, num_samples=10000)
     train_iterator = DataLoader(dataset, batch_size=batch_size, num_workers=1)
 
     c_mlp_model = ClusteringMLP(num_clusters, feature_dim, hidden_dim=8)
     c_mlp_model.train()
     optimizer = torch.optim.Adam(c_mlp_model.parameters())
 
-    for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
+    training_reward_log = []
+    loss_log = []
+    grad_norms_log = []
 
-        training_reward_log = []
-        loss_log = []
-        grad_norms_log = []
+    for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
 
         X = batch
 
@@ -163,8 +147,8 @@ if __name__ == '__main__':
 
         _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, get_policy(X).logits)
 
-        cost_d = torch.tensor(data=np.zeros(batch_size))
-        for m in range(batch_size):
+        cost_d = torch.tensor(data=np.zeros(batch.shape[0]))
+        for m in range(batch.shape[0]):
             X_c = []
             pi = []
             R_d = []
@@ -192,22 +176,31 @@ if __name__ == '__main__':
         if degeneration_flag is True:
             cost_d[degeneration_ind] = 10 * cost_d.max()
         Reward = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
-        training_reward_log.append(Reward)
+        training_reward_log.append(Reward.mean().item())
 
         # base_line = Reward.mean()
         # add baseline later
         # reinforce_loss = ((Reward - base_line) * ll).mean()
         reinforce_loss = (Reward * ll).mean()
-        loss_log.append(reinforce_loss)
+        loss_log.append(reinforce_loss.item())
 
         # Perform backward pass and optimization step
         optimizer.zero_grad()
         reinforce_loss.backward()
         # Clip gradient norms and get (clipped) gradient norms for logging
         grad_norms = clip_grad_norms(optimizer.param_groups, max_grad_norm)
-        grad_norms_log.append(grad_norms)
+        grad_norms_log.append(grad_norms[0][0].item())
 
         optimizer.step()
         lamb = lamb * lamb_decay
         if batch_id % 1 == 0:
             print("loss: {}".format(reinforce_loss))
+            print("loss: {}".format(Reward))
+        plt.figure(figsize=(10, 5))
+        plt.subplot(111)
+        plt.plot(training_reward_log, label="training reward")
+        plt.plot(loss_log, label="RL loss")
+        plt.plot(grad_norms_log, label="grad norm")
+        plt.legend()
+        plt.show()
+        torch.save(c_mlp_model.state_dict(), 'example_model.pt')
