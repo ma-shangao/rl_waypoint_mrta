@@ -121,6 +121,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(c_mlp_model.parameters())
 
     training_reward_log = []
+    cost_d_log = []
     loss_log = []
     grad_norms_log = []
 
@@ -140,7 +141,7 @@ if __name__ == '__main__':
         # s_hard = torch.argmax(s, dim=-1, keepdim=False)
         # s_hard.shape == (batch, N)
 
-        ll = get_policy(X).log_prob(a).sum(1)
+        ll = get_policy(X).log_prob(a).mean(1)
         assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
         # ll = calc_log_likelihood(s, a, mask=None)
@@ -175,6 +176,7 @@ if __name__ == '__main__':
 
         if degeneration_flag is True:
             cost_d[degeneration_ind] = 10 * cost_d.max()
+        cost_d_log.append(cost_d)
         Reward = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
         training_reward_log.append(Reward.mean().item())
 
@@ -195,11 +197,12 @@ if __name__ == '__main__':
         lamb = lamb * lamb_decay
         if batch_id % 1 == 0:
             print("loss: {}".format(reinforce_loss))
-            print("loss: {}".format(Reward))
+            print("loss: {}".format(Reward.mean()))
         plt.figure(figsize=(10, 5))
         plt.subplot(111)
         plt.plot(training_reward_log, label="training reward")
         plt.plot(loss_log, label="RL loss")
+        plt.plot(cost_d_log, label="total distance")
         plt.plot(grad_norms_log, label="grad norm")
         plt.legend()
         plt.show()
