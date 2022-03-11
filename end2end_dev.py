@@ -95,31 +95,39 @@ def clip_grad_norms(param_groups, max_norm=math.inf):
     return grad_norms, grad_norms_clipped
 
 
+# make function to compute action distribution
+def get_policy(obs, mlp):
+    logits = mlp(obs)
+    return Categorical(logits=logits)
+
+
+# make action selection function (outputs int actions, sampled from policy)
+def get_action(obs, mlp):
+    return get_policy(obs, mlp).sample()
+
+
 if __name__ == '__main__':
 
+    # some arguments and hyperparameters
     num_clusters = 3
     feature_dim = 2
-    batch_size = 128
-    lamb = 0.99
+    city_num = 20
+    batch_size = 32
+    lamb = 0
     lamb_decay = 0.99
     max_grad_norm = 1.0
 
-    # make function to compute action distribution
-    def get_policy(obs):
-        logits = c_mlp_model(obs)
-        return Categorical(logits=logits)
-
-    # make action selection function (outputs int actions, sampled from policy)
-    def get_action(obs):
-        return get_policy(obs).sample()
-
-    dataset = TSPDataset(size=20, num_samples=10000)
+    # Prepare and load the training data
+    dataset = TSPDataset(size=city_num, num_samples=10000)
     train_iterator = DataLoader(dataset, batch_size=batch_size, num_workers=1)
 
+    # Instantiate the policy
     c_mlp_model = ClusteringMLP(num_clusters, feature_dim, hidden_dim=8)
+    # set the MLP into training mode
     c_mlp_model.train()
     optimizer = torch.optim.Adam(c_mlp_model.parameters())
 
+    # some loggers
     training_reward_log = []
     cost_d_log = []
     loss_log = []
@@ -132,21 +140,14 @@ if __name__ == '__main__':
         adj_norm = knn_graph_norm_adj(X, num_knn=8, knn_mode='distance')
         adj_norm = torch.tensor(adj_norm, dtype=torch.float32)
 
-        # s = c_mlp_model(X)
-        # s.shape == (batch, N, K)
-
-        a = get_action(X)
+        a = get_action(X, c_mlp_model)
         # a.shape == (batch, N)
 
-        # s_hard = torch.argmax(s, dim=-1, keepdim=False)
-        # s_hard.shape == (batch, N)
-
-        ll = get_policy(X).log_prob(a).mean(1)
+        ll = get_policy(X, c_mlp_model).log_prob(a)
         assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
-        # ll = calc_log_likelihood(s, a, mask=None)
-
-        _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, get_policy(X).logits)
+        # Rcc and Rco are mean losses among the batch
+        _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, get_policy(X, c_mlp_model).logits)
 
         cost_d = torch.tensor(data=np.zeros(batch.shape[0]))
         for m in range(batch.shape[0]):
@@ -155,12 +156,13 @@ if __name__ == '__main__':
             R_d = []
 
             degeneration_flag = None
+            degeneration_ind = []
 
             for cluster in range(num_clusters):
                 ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
                 if ind_c.numpy().shape == (0,) or ind_c.shape == torch.Size([]):
                     degeneration_flag = True
-                    degeneration_ind = []
+
                 else:
                     X_i = X[m, ind_c, :]
                     X_c.append(X_i)
@@ -176,14 +178,14 @@ if __name__ == '__main__':
 
         if degeneration_flag is True:
             cost_d[degeneration_ind] = 10 * cost_d.max()
-        cost_d_log.append(cost_d)
+        cost_d_log.append(cost_d.mean())
         Reward = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
         training_reward_log.append(Reward.mean().item())
 
         # base_line = Reward.mean()
         # add baseline later
         # reinforce_loss = ((Reward - base_line) * ll).mean()
-        reinforce_loss = (Reward * ll).mean()
+        reinforce_loss = (Reward * ll.mean(-1)).mean()
         loss_log.append(reinforce_loss.item())
 
         # Perform backward pass and optimization step
