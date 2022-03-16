@@ -109,23 +109,25 @@ def get_action(obs, mlp):
 if __name__ == '__main__':
 
     # some arguments and hyperparameters
-    num_clusters = 3
+    num_clusters = 5
     feature_dim = 2
     city_num = 20
-    batch_size = 32
-    lamb = 0
-    lamb_decay = 0.99
+    sample_num = 10000
+    batch_size = 16
+    lamb = 0.999
+    lamb_decay = 0.95
     max_grad_norm = 1.0
+    lr = 1e-2
 
     # Prepare and load the training data
-    dataset = TSPDataset(size=city_num, num_samples=10000)
+    dataset = TSPDataset(size=city_num, num_samples=sample_num)
     train_iterator = DataLoader(dataset, batch_size=batch_size, num_workers=1)
 
     # Instantiate the policy
     c_mlp_model = ClusteringMLP(num_clusters, feature_dim, hidden_dim=8)
     # set the MLP into training mode
     c_mlp_model.train()
-    optimizer = torch.optim.Adam(c_mlp_model.parameters())
+    optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=lr)
 
     # some loggers
     training_reward_log = []
@@ -134,29 +136,39 @@ if __name__ == '__main__':
     grad_norms_log = []
 
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
-
+        # begin to train a batch
         X = batch
 
+        # compute the normalised adjacency matrix of the sample city set
         adj_norm = knn_graph_norm_adj(X, num_knn=8, knn_mode='distance')
         adj_norm = torch.tensor(adj_norm, dtype=torch.float32)
 
+        # Assign labels according to the MLP policy
         a = get_action(X, c_mlp_model)
         # a.shape == (batch, N)
 
+        # compute the logarithmic probability of the taken action
         ll = get_policy(X, c_mlp_model).log_prob(a)
         assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
         # Rcc and Rco are mean losses among the batch
         _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, get_policy(X, c_mlp_model).logits)
 
+        # initialise the tensor to store the total distance
         cost_d = torch.tensor(data=np.zeros(batch.shape[0]))
+
         for m in range(batch.shape[0]):
-            X_c = []
-            pi = []
-            R_d = []
+            # For each sample in the batch
+
+            X_c = []  # list of cities in each cluster
+            pi = []  # list of the visit sequences for each cluster
+            R_d = []  # list of the distances of each cluster
+            # len() of the above lists will be num_clusters
 
             degeneration_flag = None
             degeneration_ind = []
+            # Flag to determine whether degeneration clustering (very few or no
+            # assignments for clusters) happened as well which cluster happened.
 
             for cluster in range(num_clusters):
                 ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
@@ -200,6 +212,8 @@ if __name__ == '__main__':
         if batch_id % 1 == 0:
             print("loss: {}".format(reinforce_loss))
             print("loss: {}".format(Reward.mean()))
+
+        # Plot the loss, reward lines
         plt.figure(figsize=(10, 5))
         plt.subplot(111)
         plt.plot(training_reward_log, label="training reward")
