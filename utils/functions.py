@@ -39,7 +39,7 @@ def _load_model_file(load_path, model):
 
     # Load the model parameters from a saved state
     load_optimizer_state_dict = None
-    print('  [*] Loading model from {}'.format(load_path))
+    # print('  [*] Loading model from {}'.format(load_path))
 
     load_data = torch.load(
         os.path.join(

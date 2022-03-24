@@ -1,7 +1,12 @@
+import time
+
 import numpy as np
 import os
 import math
 import pickle
+import h5py
+
+from matplotlib.lines import Line2D
 from tqdm import tqdm
 
 import torch
@@ -15,13 +20,12 @@ from sklearn.neighbors import kneighbors_graph
 
 from matplotlib import pyplot as plt
 
-from tsp_solver import tsp_solve
+from tsp_solver import pointer_tsp_solve
 from clustering_model import ClusteringMLP
 
 
 class TSPDataset(Dataset):
-
-    def __init__(self, filename=None, size=50, num_samples=1000000, offset=0, distribution=None):
+    def __init__(self, filename=None, size=20, num_samples=1000000, offset=0, distribution=None):
         super(TSPDataset, self).__init__()
 
         self.data_set = []
@@ -62,20 +66,6 @@ def knn_graph_norm_adj(x, num_knn=8, knn_mode='distance'):
     return batch_adj
 
 
-def calc_log_likelihood(_log_p, a, mask):
-    # Get log_p corresponding to selected actions
-    log_p = _log_p.gather(2, a.unsqueeze(-1)).squeeze(-1)
-
-    # Optional: mask out actions irrelevant to objective, so they do not get reinforced
-    if mask is not None:
-        log_p[mask] = 0
-
-    assert (log_p > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
-
-    # Calculate log_likelihood
-    return log_p.sum(1)
-
-
 def clip_grad_norms(param_groups, max_norm=math.inf):
     """
     Clips the norms for all param groups to max_norm and returns gradient norms before clipping
@@ -95,6 +85,66 @@ def clip_grad_norms(param_groups, max_norm=math.inf):
     return grad_norms, grad_norms_clipped
 
 
+def plot_grad_flow(named_parameters):
+    """Plots the gradients flowing through different layers in the net during training.
+    Can be used for checking for possible gradient vanishing / exploding problems.
+
+    Usage: Plug this function in Trainer class after loss.backwards() as
+    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow"""
+    ave_grads = []
+    max_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if p.requires_grad and ("bias" not in n):
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+            max_grads.append(p.grad.abs().max())
+    plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
+    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
+    plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
+    plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
+    plt.xlim(left=0, right=len(ave_grads))
+    plt.ylim(bottom=-0.001, top=0.02)  # zoom in on the lower gradient regions
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.title("Gradient flow")
+    plt.grid(True)
+    plt.legend([Line2D([0], [0], color="c", lw=4),
+                Line2D([0], [0], color="b", lw=4),
+                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
+
+
+def save_training_log(path, logs):
+    """
+    save logs into pickle file
+    :param path: string, directory to save the logfile
+    :param logs: dictionary, keys are names of the logs, elements are lists of floats
+    :return:
+    """
+    # make sure the given path exists
+    assert os.path.exists(path), 'Given path, "{}", for saving logfiles does not exist.'.format(path)
+    # create the logfile with the time stamp
+    pickle.dump(logs, open(os.path.join(path, 'log_at_{}_{}.pkl'.format(time.asctime(time.localtime()))), "wb"))
+
+
+def plot_the_clustering_2d(cluster_num, a, X):
+
+    marker_list = ['1', '2', '3', '4', '5', '6']
+    colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
+
+    clusters_fig = plt.figure(dpi=300.0)
+    ax = clusters_fig.add_subplot(111)
+
+    for i in range(cluster_num):
+        indC = np.squeeze(np.argwhere(a == i))
+        X_C = X[indC]
+        ax.scatter(X_C[:, 0], X_C[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
+
+    clusters_fig.savefig('/home/masong/Desktop/cluster_test.png')
+
+
+
+
 # make function to compute action distribution
 def get_policy(obs, mlp):
     logits = mlp(obs)
@@ -106,34 +156,36 @@ def get_action(obs, mlp):
     return get_policy(obs, mlp).sample()
 
 
+# Train a epoch
 if __name__ == '__main__':
 
     # some arguments and hyperparameters
-    num_clusters = 5
+    num_clusters = 3
     feature_dim = 2
-    city_num = 20
-    sample_num = 10000
-    batch_size = 16
-    lamb = 0.999
-    lamb_decay = 0.95
-    max_grad_norm = 1.0
-    lr = 1e-2
+    city_num = 50
+    sample_num = 1000000
+    batch_size = 512
+    mlp_hidden_dim = 32
+    lamb = 1
+    lamb_decay = 0.9995
+    max_grad_norm = 10.0
+    lr = 0.01
 
+    gradient_check_flag = True
+
+    # TRAIN ONE EPOCH
     # Prepare and load the training data
     dataset = TSPDataset(size=city_num, num_samples=sample_num)
     train_iterator = DataLoader(dataset, batch_size=batch_size, num_workers=1)
 
     # Instantiate the policy
-    c_mlp_model = ClusteringMLP(num_clusters, feature_dim, hidden_dim=8)
+    c_mlp_model = ClusteringMLP(num_clusters, feature_dim, hidden_dim=mlp_hidden_dim)
     # set the MLP into training mode
     c_mlp_model.train()
     optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=lr)
 
     # some loggers
-    training_reward_log = []
-    cost_d_log = []
-    loss_log = []
-    grad_norms_log = []
+    logs = {'training_cost': [], 'cost_d': [], 'training_rl_loss': [], 'grad_norms': []}
 
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
         # begin to train a batch
@@ -178,7 +230,7 @@ if __name__ == '__main__':
                 else:
                     X_i = X[m, ind_c, :]
                     X_c.append(X_i)
-                    pi_i, dist_i = tsp_solve(X_i)
+                    pi_i, dist_i = pointer_tsp_solve(X_i.numpy())
                     pi.append(pi_i)
                     R_d.append(dist_i)
 
@@ -190,36 +242,45 @@ if __name__ == '__main__':
 
         if degeneration_flag is True:
             cost_d[degeneration_ind] = 10 * cost_d.max()
-        cost_d_log.append(cost_d.mean())
+        logs['cost_d'].append(cost_d.mean().item())
         Reward = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
-        training_reward_log.append(Reward.mean().item())
+        logs['training_cost'].append(Reward.mean().item())
 
         # base_line = Reward.mean()
         # add baseline later
         # reinforce_loss = ((Reward - base_line) * ll).mean()
         reinforce_loss = (Reward * ll.mean(-1)).mean()
-        loss_log.append(reinforce_loss.item())
+        logs['training_rl_loss'].append(reinforce_loss.item())
 
         # Perform backward pass and optimization step
         optimizer.zero_grad()
         reinforce_loss.backward()
+
+        if gradient_check_flag:
+            plot_grad_flow(c_mlp_model.named_parameters())
+
         # Clip gradient norms and get (clipped) gradient norms for logging
         grad_norms = clip_grad_norms(optimizer.param_groups, max_grad_norm)
-        grad_norms_log.append(grad_norms[0][0].item())
+        logs['grad_norms'].append(grad_norms[0][0].item())
 
         optimizer.step()
         lamb = lamb * lamb_decay
-        if batch_id % 1 == 0:
-            print("loss: {}".format(reinforce_loss))
-            print("loss: {}".format(Reward.mean()))
+        if batch_id % 10 == 0:
+            # print("loss: {}".format(reinforce_loss))
+            print("grad_norm: {}".format(grad_norms[0][0].item()))
+            print("total length: {}".format(logs['cost_d'][-1]))
 
-        # Plot the loss, reward lines
-        plt.figure(figsize=(10, 5))
-        plt.subplot(111)
-        plt.plot(training_reward_log, label="training reward")
-        plt.plot(loss_log, label="RL loss")
-        plt.plot(cost_d_log, label="total distance")
-        plt.plot(grad_norms_log, label="grad norm")
-        plt.legend()
-        plt.show()
-        torch.save(c_mlp_model.state_dict(), 'example_model.pt')
+            # plt.figure
+            # plt.scatter(x=X[0, :, 0], y=X[0, :, 1])
+
+            # Plot the loss, reward lines
+            plt.figure(figsize=(10, 5))
+            plt.subplot(111)
+            plt.plot(logs['cost_d'], label="total distance")
+            plt.xlabel('batch_id')
+            plt.ylabel('total_distance')
+            plt.legend()
+            plt.show()
+            torch.save(c_mlp_model.state_dict(), 'example_model.pt')
+
+    save_training_log('logfiles', logs)
