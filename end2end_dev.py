@@ -4,7 +4,6 @@ import numpy as np
 import os
 import math
 import pickle
-import h5py
 
 from matplotlib.lines import Line2D
 from tqdm import tqdm
@@ -124,12 +123,12 @@ def save_training_log(path, logs):
     # make sure the given path exists
     assert os.path.exists(path), 'Given path, "{}", for saving logfiles does not exist.'.format(path)
     # create the logfile with the time stamp
-    pickle.dump(logs, open(os.path.join(path, 'log_at_{}_{}.pkl'.format(time.asctime(time.localtime()))), "wb"))
+    pickle.dump(logs, open(os.path.join(path, 'log_at_{}.pkl'.format(time.asctime(time.localtime()))), "wb"))
 
 
-def plot_the_clustering_2d(cluster_num, a, X):
+def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/home/masong/data/rl_clustering_pics'):
+    assert showcase_mode == ('show' or 'save'), 'param: showcase_mode should be either "show" or "save".'
 
-    marker_list = ['1', '2', '3', '4', '5', '6']
     colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
 
     clusters_fig = plt.figure(dpi=300.0)
@@ -140,9 +139,11 @@ def plot_the_clustering_2d(cluster_num, a, X):
         X_C = X[indC]
         ax.scatter(X_C[:, 0], X_C[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
 
-    clusters_fig.savefig('/home/masong/Desktop/cluster_test.png')
-
-
+    if showcase_mode == 'show':
+        clusters_fig.show()
+    elif showcase_mode == 'save':
+        clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
+                                          .format(time.asctime(time.localtime()))))
 
 
 # make function to compute action distribution
@@ -156,7 +157,7 @@ def get_action(obs, mlp):
     return get_policy(obs, mlp).sample()
 
 
-# Train a epoch
+# Train an epoch
 if __name__ == '__main__':
 
     # some arguments and hyperparameters
@@ -167,7 +168,7 @@ if __name__ == '__main__':
     batch_size = 512
     mlp_hidden_dim = 32
     lamb = 1
-    lamb_decay = 0.9995
+    lamb_decay = 1
     max_grad_norm = 10.0
     lr = 0.01
 
@@ -199,7 +200,7 @@ if __name__ == '__main__':
         a = get_action(X, c_mlp_model)
         # a.shape == (batch, N)
 
-        # compute the logarithmic probability of the taken action
+        # compute the logarithmic probability of the taken action, ll.shape == [batch_size, 50]
         ll = get_policy(X, c_mlp_model).log_prob(a)
         assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
@@ -217,13 +218,18 @@ if __name__ == '__main__':
             R_d = []  # list of the distances of each cluster
             # len() of the above lists will be num_clusters
 
-            degeneration_flag = None
-            degeneration_ind = []
             # Flag to determine whether degeneration clustering (very few or no
             # assignments for clusters) happened as well which cluster happened.
+            degeneration_flag = None
+            degeneration_ind = []
 
             for cluster in range(num_clusters):
+                # For each cluster within this sample
+
+                # Get the list of indices of cities assigned to this cluster.
                 ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
+
+                # This is the condition to detect degeneration
                 if ind_c.numpy().shape == (0,) or ind_c.shape == torch.Size([]):
                     degeneration_flag = True
 
@@ -243,21 +249,19 @@ if __name__ == '__main__':
         if degeneration_flag is True:
             cost_d[degeneration_ind] = 10 * cost_d.max()
         logs['cost_d'].append(cost_d.mean().item())
-        Reward = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
-        logs['training_cost'].append(Reward.mean().item())
+        cost = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
+        logs['training_cost'].append(cost.mean().item())
 
-        # base_line = Reward.mean()
+        # base_line = cost.mean()
         # add baseline later
-        # reinforce_loss = ((Reward - base_line) * ll).mean()
-        reinforce_loss = (Reward * ll.mean(-1)).mean()
+        # reinforce_loss = ((cost - base_line) * ll).mean()
+
+        reinforce_loss = (cost * ll.mean(-1)).mean()
         logs['training_rl_loss'].append(reinforce_loss.item())
 
         # Perform backward pass and optimization step
         optimizer.zero_grad()
         reinforce_loss.backward()
-
-        if gradient_check_flag:
-            plot_grad_flow(c_mlp_model.named_parameters())
 
         # Clip gradient norms and get (clipped) gradient norms for logging
         grad_norms = clip_grad_norms(optimizer.param_groups, max_grad_norm)
@@ -265,15 +269,17 @@ if __name__ == '__main__':
 
         optimizer.step()
         lamb = lamb * lamb_decay
-        if batch_id % 10 == 0:
+        if batch_id % 50 == 0:
             # print("loss: {}".format(reinforce_loss))
-            print("grad_norm: {}".format(grad_norms[0][0].item()))
-            print("total length: {}".format(logs['cost_d'][-1]))
+            # print("grad_norm: {}".format(grad_norms[0][0].item()))
+            # print("total length: {}".format(logs['cost_d'][-1]))
 
-            # plt.figure
-            # plt.scatter(x=X[0, :, 0], y=X[0, :, 1])
+            if gradient_check_flag:
+                plot_grad_flow(c_mlp_model.named_parameters())
 
-            # Plot the loss, reward lines
+            plot_the_clustering_2d(num_clusters, a[0], X[0], showcase_mode='show')
+
+            # Plot the loss, cost lines
             plt.figure(figsize=(10, 5))
             plt.subplot(111)
             plt.plot(logs['cost_d'], label="total distance")
