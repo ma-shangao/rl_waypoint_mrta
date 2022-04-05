@@ -14,6 +14,7 @@ from sklearn.metrics.cluster import v_measure_score
 # from rl_tsp_solver import rl_tsp_solver
 # from tsp_solver import tsp_solve
 
+
 def sp_matrix_to_sp_tensor(x):
     """
     Converts a Scipy sparse matrix to a tf.SparseTensor

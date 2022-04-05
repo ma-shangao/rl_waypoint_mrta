@@ -62,7 +62,7 @@ def knn_graph_norm_adj(x, num_knn=8, knn_mode='distance'):
         # adj = sp.csr_matrix(adj, dtype=np.float32)
         batch_adj[bat, :, :] = normalized_adjacency(adj)
 
-    return batch_adj
+    return torch.tensor(batch_adj, dtype=torch.float32)
 
 
 def clip_grad_norms(param_groups, max_norm=math.inf):
@@ -153,37 +153,45 @@ def get_policy(obs, mlp):
 
 
 # make action selection function (outputs int actions, sampled from policy)
-def get_action(obs, mlp):
-    return get_policy(obs, mlp).sample()
+# def get_action(obs, mlp):
+#     return get_policy(obs, mlp).sample()
 
 
 # Train an epoch
 if __name__ == '__main__':
 
     # some arguments and hyperparameters
-    num_clusters = 3
-    feature_dim = 2
-    city_num = 50
-    sample_num = 1000000
-    batch_size = 512
-    mlp_hidden_dim = 32
-    lamb = 1
-    lamb_decay = 1
-    max_grad_norm = 10.0
-    lr = 0.01
+    hyper_params = {
+        'num_clusters': 3,
+        'feature_dim': 2,
+        'city_num': 50,
+        'sample_num': 1000000,
+        'batch_size': 32,
+        'mlp_hidden_dim': 32,
+        'lamb': 0.5,
+        'lamb_decay': 1,
+        'max_grad_norm': 10.0,
+        'lr': 0.01
+    }
 
+    lamb = hyper_params['lamb']
     gradient_check_flag = True
+    use_minCUT_pretrained = False
 
     # TRAIN ONE EPOCH
     # Prepare and load the training data
-    dataset = TSPDataset(size=city_num, num_samples=sample_num)
-    train_iterator = DataLoader(dataset, batch_size=batch_size, num_workers=1)
+    dataset = TSPDataset(size=hyper_params['city_num'], num_samples=hyper_params['sample_num'])
+    train_iterator = DataLoader(dataset, batch_size=hyper_params['batch_size'], num_workers=1)
 
     # Instantiate the policy
-    c_mlp_model = ClusteringMLP(num_clusters, feature_dim, hidden_dim=mlp_hidden_dim)
+    c_mlp_model = ClusteringMLP(hyper_params['num_clusters'], hyper_params['feature_dim'],
+                                hidden_dim=hyper_params['mlp_hidden_dim'])
+    if use_minCUT_pretrained:
+        c_mlp_model.load_state_dict(torch.load('ul_pretrained.pt'))
+
     # set the MLP into training mode
     c_mlp_model.train()
-    optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=hyper_params['lr'])
 
     # some loggers
     logs = {'training_cost': [], 'cost_d': [], 'training_rl_loss': [], 'grad_norms': []}
@@ -194,18 +202,21 @@ if __name__ == '__main__':
 
         # compute the normalised adjacency matrix of the sample city set
         adj_norm = knn_graph_norm_adj(X, num_knn=8, knn_mode='distance')
-        adj_norm = torch.tensor(adj_norm, dtype=torch.float32)
+
+        cluster_policy = get_policy(X, c_mlp_model)
 
         # Assign labels according to the MLP policy
-        a = get_action(X, c_mlp_model)
+        # a = get_action(X, c_mlp_model)
+        a = cluster_policy.sample()
         # a.shape == (batch, N)
 
         # compute the logarithmic probability of the taken action, ll.shape == [batch_size, 50]
-        ll = get_policy(X, c_mlp_model).log_prob(a)
+        # ll = get_policy(X, c_mlp_model).log_prob(a)
+        ll = cluster_policy.log_prob(a)
         assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
         # Rcc and Rco are mean losses among the batch
-        _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, get_policy(X, c_mlp_model).logits)
+        _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, cluster_policy.logits)
 
         # initialise the tensor to store the total distance
         cost_d = torch.tensor(data=np.zeros(batch.shape[0]))
@@ -223,20 +234,21 @@ if __name__ == '__main__':
             degeneration_flag = None
             degeneration_ind = []
 
-            for cluster in range(num_clusters):
+            for cluster in range(hyper_params['num_clusters']):
                 # For each cluster within this sample
 
                 # Get the list of indices of cities assigned to this cluster.
                 ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
 
                 # This is the condition to detect degeneration
-                if ind_c.numpy().shape == (0,) or ind_c.shape == torch.Size([]):
+                if sum(ind_c.shape) == 0:
                     degeneration_flag = True
 
                 else:
                     X_i = X[m, ind_c, :]
                     X_c.append(X_i)
                     pi_i, dist_i = pointer_tsp_solve(X_i.numpy())
+
                     pi.append(pi_i)
                     R_d.append(dist_i)
 
@@ -249,7 +261,9 @@ if __name__ == '__main__':
         if degeneration_flag is True:
             cost_d[degeneration_ind] = 10 * cost_d.max()
         logs['cost_d'].append(cost_d.mean().item())
-        cost = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
+
+        # distance normalised by 10, this needs to be refined
+        cost = (1 - lamb) * cost_d/10 + lamb * (Rcc + Rco)
         logs['training_cost'].append(cost.mean().item())
 
         # base_line = cost.mean()
@@ -264,12 +278,12 @@ if __name__ == '__main__':
         reinforce_loss.backward()
 
         # Clip gradient norms and get (clipped) gradient norms for logging
-        grad_norms = clip_grad_norms(optimizer.param_groups, max_grad_norm)
+        grad_norms = clip_grad_norms(optimizer.param_groups, hyper_params['max_grad_norm'])
         logs['grad_norms'].append(grad_norms[0][0].item())
 
         optimizer.step()
-        lamb = lamb * lamb_decay
-        if batch_id % 50 == 0:
+        lamb = lamb * hyper_params['lamb_decay']
+        if batch_id % 200 == 0:
             # print("loss: {}".format(reinforce_loss))
             # print("grad_norm: {}".format(grad_norms[0][0].item()))
             # print("total length: {}".format(logs['cost_d'][-1]))
@@ -277,7 +291,7 @@ if __name__ == '__main__':
             if gradient_check_flag:
                 plot_grad_flow(c_mlp_model.named_parameters())
 
-            plot_the_clustering_2d(num_clusters, a[0], X[0], showcase_mode='show')
+            plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='show')
 
             # Plot the loss, cost lines
             plt.figure(figsize=(10, 5))
