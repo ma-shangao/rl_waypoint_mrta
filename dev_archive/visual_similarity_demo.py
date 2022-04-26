@@ -22,7 +22,7 @@ import pandas as pd
 import pickle
 
 
-path = os.path.join('flower_dataset', 'flower_images')
+path = os.path.join('../flower_dataset', 'flower_images')
 # change the working directory to the path where the images are located
 os.chdir(path)
 

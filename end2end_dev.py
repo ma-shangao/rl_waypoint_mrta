@@ -47,7 +47,7 @@ class TSPDataset(Dataset):
         return self.data[idx]
 
 
-def knn_graph_norm_adj(x, num_knn=8, knn_mode='distance'):
+def knn_graph_norm_adj(x, num_knn=4, knn_mode='distance'):
     x = x.numpy()
     batch_size = x.shape[0]
     n_node = x.shape[1]
@@ -201,17 +201,15 @@ if __name__ == '__main__':
         X = batch
 
         # compute the normalised adjacency matrix of the sample city set
-        adj_norm = knn_graph_norm_adj(X, num_knn=8, knn_mode='distance')
+        adj_norm = knn_graph_norm_adj(X, num_knn=4, knn_mode='distance')
 
         cluster_policy = get_policy(X, c_mlp_model)
 
         # Assign labels according to the MLP policy
-        # a = get_action(X, c_mlp_model)
         a = cluster_policy.sample()
         # a.shape == (batch, N)
 
         # compute the logarithmic probability of the taken action, ll.shape == [batch_size, 50]
-        # ll = get_policy(X, c_mlp_model).log_prob(a)
         ll = cluster_policy.log_prob(a)
         assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
@@ -240,7 +238,7 @@ if __name__ == '__main__':
                 # Get the list of indices of cities assigned to this cluster.
                 ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
 
-                # This is the condition to detect degeneration
+                # This is the condition to detect disappearing cluster assignment
                 if sum(ind_c.shape) == 0:
                     degeneration_flag = True
 

@@ -36,7 +36,7 @@ import_data = True
 
 if import_data:
     from cifar10loader import unpickle
-    cifar_data = unpickle(os.path.join('cifar-10-batches-py', 'data_batch_2'))
+    cifar_data = unpickle(os.path.join('../cifar-10-batches-py', 'data_batch_2'))
 
     X = cifar_data[b'data']
     y = cifar_data[b'labels']
