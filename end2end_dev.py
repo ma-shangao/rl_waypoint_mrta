@@ -21,6 +21,7 @@ from matplotlib import pyplot as plt
 
 from tsp_solver import pointer_tsp_solve
 from clustering_model import ClusteringMLP
+from utilities import plot_the_clustering_2d
 
 
 class TSPDataset(Dataset):
@@ -124,26 +125,6 @@ def save_training_log(path, logs):
     assert os.path.exists(path), 'Given path, "{}", for saving logfiles does not exist.'.format(path)
     # create the logfile with the time stamp
     pickle.dump(logs, open(os.path.join(path, 'log_at_{}.pkl'.format(time.asctime(time.localtime()))), "wb"))
-
-
-def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/home/masong/data/rl_clustering_pics'):
-    assert showcase_mode == ('show' or 'save'), 'param: showcase_mode should be either "show" or "save".'
-
-    colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
-
-    clusters_fig = plt.figure(dpi=300.0)
-    ax = clusters_fig.add_subplot(111)
-
-    for i in range(cluster_num):
-        indC = np.squeeze(np.argwhere(a == i))
-        X_C = X[indC]
-        ax.scatter(X_C[:, 0], X_C[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
-
-    if showcase_mode == 'show':
-        clusters_fig.show()
-    elif showcase_mode == 'save':
-        clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
-                                          .format(time.asctime(time.localtime()))))
 
 
 # make function to compute action distribution
