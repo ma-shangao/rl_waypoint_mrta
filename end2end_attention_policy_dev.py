@@ -20,10 +20,12 @@ from sklearn.neighbors import kneighbors_graph
 from matplotlib import pyplot as plt
 
 from tsp_solver import pointer_tsp_solve
-from clustering_model import ClusteringMLP
+from rl_policy.MLP_model import ClusteringMLP
+from rl_policy.attention_model import AttentionModel
 
 from tensorboardX import SummaryWriter
-
+from datetime import datetime, timedelta
+from utils import torch_load_cpu, load_problem
 
 class TSPDataset(Dataset):
     def __init__(self, filename=None, size=20, num_samples=1000000, offset=0, distribution=None):
@@ -149,8 +151,8 @@ def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/
 
 
 # make function to compute action distribution
-def get_policy(obs, mlp):
-    logits = mlp(obs)
+def get_policy(obs, model):
+    logits = model(obs)
     return Categorical(logits=logits)
 
 
@@ -174,10 +176,16 @@ if __name__ == '__main__':
         'lamb_decay': 1,
         'max_grad_norm': 10.0,
         'lr': 0.01,
-        'log_dir': 'logs_e2e_dev',
+        'log_dir': 'logs_e2e_attention_dev',
+        'embedding_dim': 128,
+        'hidden_dim': 128,
+        'problem': 'tsp',
     }
+    cur_time = datetime.now() + timedelta(hours=0)
 
-    writer = SummaryWriter(logdir=hyper_params['log_dir'])
+    writer = SummaryWriter(logdir=hyper_params['log_dir'] + "/" + cur_time.strftime("[%m-%d]%H.%M.%S"))
+    # Figure out what's the problem
+    problem = load_problem(hyper_params['problem'])
 
     lamb = hyper_params['lamb']
     gradient_check_flag = True
@@ -189,14 +197,19 @@ if __name__ == '__main__':
     train_iterator = DataLoader(dataset, batch_size=hyper_params['batch_size'], num_workers=1)
 
     # Instantiate the policy
-    c_mlp_model = ClusteringMLP(hyper_params['num_clusters'], hyper_params['feature_dim'],
-                                hidden_dim=hyper_params['mlp_hidden_dim'])
-    if use_minCUT_pretrained:
-        c_mlp_model.load_state_dict(torch.load('ul_pretrained.pt'))
+    # c_mlp_model = ClusteringMLP(hyper_params['num_clusters'], hyper_params['feature_dim'],
+    #                             hidden_dim=hyper_params['mlp_hidden_dim'])
+
+    c_attention_model = AttentionModel(problem, hyper_params['feature_dim'], hyper_params['embedding_dim'], hyper_params['hidden_dim'], hyper_params['city_num'])
+
+    # if use_minCUT_pretrained:
+    #     c_mlp_model.load_state_dict(torch.load('ul_pretrained.pt'))
 
     # set the MLP into training mode
-    c_mlp_model.train()
-    optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=hyper_params['lr'])
+    # c_mlp_model.train()
+    # optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=hyper_params['lr'])
+    c_attention_model.train()
+    optimizer = torch.optim.Adam(c_attention_model.parameters(), lr=hyper_params['lr'])
 
     # some loggers
     logs = {'training_cost': [], 'cost_d': [], 'training_rl_loss': [], 'grad_norms': []}
@@ -209,26 +222,28 @@ if __name__ == '__main__':
         # compute the normalised adjacency matrix of the sample city set ::: adj take up 1/10
         adj_norm = knn_graph_norm_adj(X, num_knn=4, knn_mode='distance')
 
-        cluster_policy = get_policy(X, c_mlp_model)
-
+        # cluster_policy = get_policy(X, c_attention_model)
         # Assign labels according to the MLP policy
-        a = cluster_policy.sample()
+        # a = cluster_policy.sample()
         # a.shape == (batch, N)
-
         # compute the logarithmic probability of the taken action, ll.shape == [batch_size, 50]
-        ll = cluster_policy.log_prob(a)  # torch.Size([32, 50])
-        assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
+        # ll = cluster_policy.log_prob(a)
+        # assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
+
+        log_p_sum, selected_sequences, node_groups, cluster_policy_logits = c_attention_model(X)
+        ### sorted for the right group order
+        sorted_selected_sequences, sorted_indices = torch.sort(selected_sequences, dim=1)
+        a = torch.gather(node_groups, 1, sorted_indices)[:,:,0]  ## 32.50
+        ll = log_p_sum[:,:,0]
 
         # Rcc and Rco are mean losses among the batch
-        print(cluster_policy.logits.size())
-        _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, cluster_policy.logits)  # torch.Size([32, 50, 2])torch.Size([32, 50, 50])torch.Size([32, 50, 3])
+        _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, cluster_policy_logits)
 
         # initialise the tensor to store the total distance
         cost_d = torch.tensor(data=np.zeros(batch.shape[0]))
 
         for m in range(batch.shape[0]):
             # For each sample in the batch
-
             X_c = []  # list of cities in each cluster
             pi = []  # list of the visit sequences for each cluster
             R_d = []  # list of the distances of each cluster
@@ -301,7 +316,7 @@ if __name__ == '__main__':
             # print("total length: {}".format(logs['cost_d'][-1]))
 
             if gradient_check_flag:
-                plot_grad_flow(c_mlp_model.named_parameters())
+                plot_grad_flow(c_attention_model.named_parameters())
 
             plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='show')
 
@@ -313,6 +328,6 @@ if __name__ == '__main__':
             plt.ylabel('total_distance')
             plt.legend()
             plt.show()
-            torch.save(c_mlp_model.state_dict(), 'example_model.pt')
+            torch.save(c_attention_model.state_dict(), 'example_model.pt')
 
     save_training_log('logfiles', logs)
