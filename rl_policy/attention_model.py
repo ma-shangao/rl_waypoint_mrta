@@ -13,21 +13,6 @@ from torch.nn import DataParallel
 from torch.distributions import Categorical
 from tensorboardX import SummaryWriter
 
-class ScdStateMaker(nn.Module):
-    def __init__(self, ori_states):
-        super(ScdStateMaker, self).__init__()
-        self.ori_states = ori_states
-        self.mean_state = torch.mean(self.ori_states[:, :, :-1], axis=1)
-
-    def get_cur_state(self, cur_time_step, last_act, last_rewards):
-        cur_state = self.ori_states[:, cur_time_step]
-        last_action = last_act
-        last_action_one_hot = np.where(last_action == 1, [0, 1], [1, 0])  # bs.2
-        rewards = last_rewards
-        self.global_state = np.concatenate((cur_state, last_action_one_hot, rewards, rewards), axis=1)
-        # state_all = np.concatenate((self.mean_state, self.global_state), axis=1)
-        return torch.from_numpy(self.global_state).unsqueeze(1).to(torch.float32)
-
 def set_decode_type(model, decode_type):
     if isinstance(model, DataParallel):
         model = model.module
@@ -287,15 +272,15 @@ class AttentionModel(nn.Module):
             state = state.update(selected)
             _log_p_selected = log_p.gather(2, selected[:, None, None])[:,:,0]
             ### groups
-            group_embedding = torch.cat((glimpse, self.cur_log_p_selected_unmasked), dim=-1)
+            group_embedding = torch.cat((glimpse, self.cur_logits_selected_unmasked), dim=-1)
             classify_logits = self.group_classifier(group_embedding)
             classify_logits = torch.nn.Sigmoid()(classify_logits) # ACTIVATE
             classify_log_p = torch.log_softmax(classify_logits / self.temp, dim=-1)
             _, node_group = classify_log_p.exp().max(-1)  ## 32,1
             _classify_log_p_selected = classify_log_p.gather(2, node_group[:, :, None])[:,:,0]
 
-            _log_p_sum_ = _log_p_selected + _classify_log_p_selected ## 相当于是选择节点和分组的概率乘积
-            total_logits_ = _log_p_selected[:,:,None] + classify_log_p
+            _log_p_sum_ = _log_p_selected + _classify_log_p_selected ## 相当于是选择节点和分组的概率乘积  ## 32, 1, 1
+            total_logits_ = _log_p_selected[:,:,None] + classify_log_p ## 32, 1, 3
 
             # Collect output of step
             log_p_s.append(_log_p_sum_)
@@ -305,6 +290,7 @@ class AttentionModel(nn.Module):
             i += 1
 
         return torch.stack(log_p_s, 1), torch.stack(sequences, 1)[:,:,None], torch.stack(node_groups, 1), torch.stack(total_logits, 1)[:,:,0]
+        # 50, 32, 1
 
     def forward(self, input):
         """

@@ -141,6 +141,8 @@ def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/
     for i in range(cluster_num):
         indC = np.squeeze(np.argwhere(a == i))
         X_C = X[indC]
+        if X_C.dim() == 1:
+            X_C = torch.unsqueeze(X_C, 0)
         ax.scatter(X_C[:, 0], X_C[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
 
     if showcase_mode == 'show':
@@ -181,6 +183,8 @@ if __name__ == '__main__':
         'hidden_dim': 128,
         'problem': 'tsp',
     }
+
+    eps = np.finfo(np.float32).eps.item()
     cur_time = datetime.now() + timedelta(hours=0)
 
     writer = SummaryWriter(logdir=hyper_params['log_dir'] + "/" + cur_time.strftime("[%m-%d]%H.%M.%S"))
@@ -215,7 +219,6 @@ if __name__ == '__main__':
     logs = {'training_cost': [], 'cost_d': [], 'training_rl_loss': [], 'grad_norms': []}
 
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
-        print(batch_id)
         # begin to train a batch
         X = batch    # torch.Size([32, 50, 2])
 
@@ -234,7 +237,7 @@ if __name__ == '__main__':
         ### sorted for the right group order
         sorted_selected_sequences, sorted_indices = torch.sort(selected_sequences, dim=1)
         a = torch.gather(node_groups, 1, sorted_indices)[:,:,0]  ## 32.50
-        ll = log_p_sum[:,:,0]
+        ll = log_p_sum[:,:,0] # 32.50
 
         # Rcc and Rco are mean losses among the batch
         _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, cluster_policy_logits)
@@ -242,6 +245,7 @@ if __name__ == '__main__':
         # initialise the tensor to store the total distance
         cost_d = torch.tensor(data=np.zeros(batch.shape[0]))
 
+        degeneration_count = 0
         for m in range(batch.shape[0]):
             # For each sample in the batch
             X_c = []  # list of cities in each cluster
@@ -253,6 +257,7 @@ if __name__ == '__main__':
             # assignments for clusters) happened as well which cluster happened.
             degeneration_flag = None
             degeneration_ind = []
+            degeneration_penalty = 10
 
             for cluster in range(hyper_params['num_clusters']):
                 # For each cluster within this sample
@@ -263,7 +268,8 @@ if __name__ == '__main__':
                 # This is the condition to detect disappearing cluster assignment
                 if sum(ind_c.shape) == 0:
                     degeneration_flag = True
-
+                    R_d.append(degeneration_penalty)
+                    degeneration_count += 1
                 else:
                     X_i = X[m, ind_c, :]
                     X_c.append(X_i)
@@ -272,25 +278,28 @@ if __name__ == '__main__':
                     pi.append(pi_i)
                     R_d.append(dist_i)
 
-            if degeneration_flag is True:
-                degeneration_ind.append(m)
-                cost_d[m] = 0
-            else:
-                cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
+            # if degeneration_flag is True:
+            #     degeneration_ind.append(m)
+            #     cost_d[m] = 10
+            # else:
+            cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
 
-        if degeneration_flag is True:
-            cost_d[degeneration_ind] = 10 * cost_d.max()
+        # if degeneration_flag is True:  ### rjq：？？？？ 这不对吧
+        #     cost_d[degeneration_ind] = 10 * cost_d.max()
         logs['cost_d'].append(cost_d.mean().item())
+        print("----------cost_d:::", logs['cost_d'][-1], "----------degeneration_ratio:::", degeneration_count/(batch.shape[0] * hyper_params['num_clusters']))
 
         # distance normalised by 10, this needs to be refined
-        cost = (1 - lamb) * cost_d/10 + lamb * (Rcc + Rco)
+
+        (cost_d - cost_d.mean()) / (cost_d.std() + eps)
+        cost = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
         logs['training_cost'].append(cost.mean().item())
 
         # base_line = cost.mean()
         # add baseline later
         # reinforce_loss = ((cost - base_line) * ll).mean()
-
-        reinforce_loss = (cost * ll.mean(-1)).mean()
+        cost = (cost - cost.mean()) / (cost.std() + eps)
+        reinforce_loss = (cost * ll.sum(-1)).mean()  ## rjq:这应该是sum 不是mean
         logs['training_rl_loss'].append(reinforce_loss.item())
 
         # Perform backward pass and optimization step
