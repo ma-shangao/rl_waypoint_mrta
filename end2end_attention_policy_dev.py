@@ -299,7 +299,7 @@ if __name__ == '__main__':
         # base_line = cost.mean()
         # add baseline later
         # reinforce_loss = ((cost - base_line) * ll).mean()
-        cost = (cost - cost.mean()) / (cost.std() + eps)
+        # cost = (cost - cost.mean()) / (cost.std() + eps)
         reinforce_loss = (cost * ll.sum(-1)).mean()  ## rjq:这应该是sum 不是mean
         logs['training_rl_loss'].append(reinforce_loss.item())
 
