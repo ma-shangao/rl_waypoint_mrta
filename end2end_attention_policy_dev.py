@@ -292,7 +292,7 @@ if __name__ == '__main__':
 
         # distance normalised by 10, this needs to be refined
 
-        (cost_d - cost_d.mean()) / (cost_d.std() + eps)
+        cost_d = (cost_d - cost_d.mean()) / (cost_d.std() + eps)
         cost = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
         logs['training_cost'].append(cost.mean().item())
 
