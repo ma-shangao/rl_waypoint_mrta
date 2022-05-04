@@ -288,6 +288,7 @@ if __name__ == '__main__':
         #     cost_d[degeneration_ind] = 10 * cost_d.max()
         logs['cost_d'].append(cost_d.mean().item())
         print("----------cost_d:::", logs['cost_d'][-1], "----------degeneration_ratio:::", degeneration_count/(batch.shape[0] * hyper_params['num_clusters']))
+        writer.add_scalar('degeneration_ratio', degeneration_count/(batch.shape[0] * hyper_params['num_clusters']), batch_id)
 
         # distance normalised by 10, this needs to be refined
 

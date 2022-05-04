@@ -60,7 +60,8 @@ class AttentionModel(nn.Module):
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
         self.n_encode_layers = n_encode_layers
-        self.decode_type = "greedy"
+        # self.decode_type = "greedy"  #
+        self.decode_type = "sampling"  # sampling
         self.temp = 1.0
         self.hidden_dropout_prob = 0.5
         self.episode_length = episode_length
@@ -249,6 +250,18 @@ class AttentionModel(nn.Module):
             assert False, "Unknown decode type"
         return selected
 
+    def _select_groups(self, probs):
+
+        assert (probs == probs).all(), "Probs should not contain any nans"
+
+        if self.decode_type == "greedy":
+            _, selected = probs.max(1)
+        elif self.decode_type == "sampling":
+            selected = probs.multinomial(1).squeeze(1)
+        else:
+            assert False, "Unknown decode type"
+        return selected
+
     def _inner_decode(self, input, embeddings):
         # torch.Size([50, 400, 60])
         log_p_s = []
@@ -276,7 +289,9 @@ class AttentionModel(nn.Module):
             classify_logits = self.group_classifier(group_embedding)
             classify_logits = torch.nn.Sigmoid()(classify_logits) # ACTIVATE
             classify_log_p = torch.log_softmax(classify_logits / self.temp, dim=-1)
-            _, node_group = classify_log_p.exp().max(-1)  ## 32,1
+
+            node_group = self._select_groups(classify_log_p.exp()[:,0,:])[:, None]
+            # _, node_group = classify_log_p.exp().max(-1)  ## 32,1
             _classify_log_p_selected = classify_log_p.gather(2, node_group[:, :, None])[:,:,0]
 
             _log_p_sum_ = _log_p_selected + _classify_log_p_selected ## 相当于是选择节点和分组的概率乘积  ## 32, 1, 1
