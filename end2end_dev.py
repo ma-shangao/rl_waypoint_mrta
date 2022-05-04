@@ -20,7 +20,7 @@ from sklearn.neighbors import kneighbors_graph
 from matplotlib import pyplot as plt
 
 from tsp_solver import pointer_tsp_solve
-from clustering_model import ClusteringMLP
+from rl_policy.MLP_model import ClusteringMLP
 
 from tensorboardX import SummaryWriter
 

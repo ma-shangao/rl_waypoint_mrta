@@ -131,7 +131,7 @@ def save_training_log(path, logs):
 
 
 def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/home/masong/data/rl_clustering_pics'):
-    assert showcase_mode == ('show' or 'save'), 'param: showcase_mode should be either "show" or "save".'
+    assert showcase_mode in ['show', 'save', 'obj'], 'param: showcase_mode should be among "obj", "show" or "save".'
 
     colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
 
@@ -150,6 +150,8 @@ def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/
     elif showcase_mode == 'save':
         clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
                                           .format(time.asctime(time.localtime()))))
+    elif showcase_mode == 'obj':
+        return clusters_fig
 
 
 # make function to compute action distribution
@@ -192,7 +194,7 @@ if __name__ == '__main__':
     problem = load_problem(hyper_params['problem'])
 
     lamb = hyper_params['lamb']
-    gradient_check_flag = True
+    gradient_check_flag = False
     use_minCUT_pretrained = False
 
     # TRAIN ONE EPOCH
@@ -236,8 +238,8 @@ if __name__ == '__main__':
         log_p_sum, selected_sequences, node_groups, cluster_policy_logits = c_attention_model(X)
         ### sorted for the right group order
         sorted_selected_sequences, sorted_indices = torch.sort(selected_sequences, dim=1)
-        a = torch.gather(node_groups, 1, sorted_indices)[:,:,0]  ## 32.50
-        ll = log_p_sum[:,:,0] # 32.50
+        a = torch.gather(node_groups, 1, sorted_indices)[:, :, 0]   ## 32.50
+        ll = log_p_sum[:, :, 0]  # 32.50
 
         # Rcc and Rco are mean losses among the batch
         _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, cluster_policy_logits)
@@ -282,7 +284,7 @@ if __name__ == '__main__':
             #     degeneration_ind.append(m)
             #     cost_d[m] = 10
             # else:
-            cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
+            cost_d[m] = torch.tensor(max(R_d), dtype=torch.float32)
 
         # if degeneration_flag is True:  ### rjq：？？？？ 这不对吧
         #     cost_d[degeneration_ind] = 10 * cost_d.max()
@@ -320,24 +322,27 @@ if __name__ == '__main__':
         writer.add_scalar('training_rl_loss', logs['training_rl_loss'][-1], batch_id)
         # writer.add_scalar('training_rl_loss', logs['training_rl_loss'][-1], batch_id)
 
-        if batch_id % 200 == 0:
+        if batch_id % 50 == 0:
             # print("loss: {}".format(reinforce_loss))
             # print("grad_norm: {}".format(grad_norms[0][0].item()))
             # print("total length: {}".format(logs['cost_d'][-1]))
 
             if gradient_check_flag:
                 plot_grad_flow(c_attention_model.named_parameters())
+                plt.show()
 
-            plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='show')
+            writer.add_figure('clustering showcase',
+                              plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='obj'),
+                              batch_id)
 
-            # Plot the loss, cost lines
-            plt.figure(figsize=(10, 5))
-            plt.subplot(111)
-            plt.plot(logs['cost_d'], label="total distance")
-            plt.xlabel('batch_id')
-            plt.ylabel('total_distance')
-            plt.legend()
-            plt.show()
-            torch.save(c_attention_model.state_dict(), 'example_model.pt')
+            # # Plot the loss, cost lines
+            # plt.figure(figsize=(10, 5))
+            # plt.subplot(111)
+            # plt.plot(logs['cost_d'], label="total distance")
+            # plt.xlabel('batch_id')
+            # plt.ylabel('total_distance')
+            # plt.legend()
+            # plt.show()
+            # torch.save(c_attention_model.state_dict(), 'example_model.pt')
 
-    save_training_log('logfiles', logs)
+    # save_training_log('logfiles', logs)
