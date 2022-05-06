@@ -215,9 +215,9 @@ class AttentionModel(nn.Module):
         mask = state.get_mask()  # torch.Size([1024, 1, 20])
 
         # Compute logits (unnormalized log_p)
-        log_p, glimpse = self._one_to_many_logits(query, glimpse_K, glimpse_V, logit_K, mask)
+        logit_p, glimpse = self._one_to_many_logits(query, glimpse_K, glimpse_V, logit_K, mask)
         if normalize:
-            log_p = torch.log_softmax(log_p / self.temp, dim=-1) # torch.Size([1024, 1, 20])
+            log_p = torch.log_softmax(logit_p / self.temp, dim=-1) # torch.Size([1024, 1, 20])
             self.cur_log_p_selected_unmasked = torch.log_softmax(self.cur_logits_selected_unmasked / self.temp, dim=-1)
 
         # torch.Size([32, 1, 50]), torch.Size([32, 1, 128])
@@ -229,7 +229,7 @@ class AttentionModel(nn.Module):
 
         assert not torch.isnan(log_p).any()
 
-        return log_p, mask, glimpse
+        return log_p, mask, glimpse, logit_p
 
     def _select_node(self, probs, mask):
 
@@ -279,23 +279,24 @@ class AttentionModel(nn.Module):
         i = 0
         while i < self.episode_length:
             # state = input[:, i]  ## torch.Size([64, 122])
-            log_p, mask, glimpse = self._get_log_p(fixed, state)  ## 32,1,50
+            log_p, mask, glimpse, logit_p = self._get_log_p(fixed, state)  ## 32,1,50
             #### 选结点，并将其进行分组
             selected = self._select_node(log_p.exp()[:, 0, :], mask[:, 0, :])  # Squeeze out steps dimension
             state = state.update(selected)
-            _log_p_selected = log_p.gather(2, selected[:, None, None])[:,:,0]
+            _log_p_selected = log_p.gather(2, selected[:, None, None])[:, :, 0]
+            _logit_p_selected = logit_p.gather(2, selected[:, None, None])[:, :, 0]
             ### groups
             group_embedding = torch.cat((glimpse, self.cur_logits_selected_unmasked), dim=-1)
             classify_logits = self.group_classifier(group_embedding)
-            classify_logits = torch.nn.Sigmoid()(classify_logits) # ACTIVATE
+            classify_logits = torch.nn.Sigmoid()(classify_logits)  # ACTIVATE
             classify_log_p = torch.log_softmax(classify_logits / self.temp, dim=-1)
 
-            node_group = self._select_groups(classify_log_p.exp()[:,0,:])[:, None]
+            node_group = self._select_groups(classify_log_p.exp()[:, 0, :])[:, None]
             # _, node_group = classify_log_p.exp().max(-1)  ## 32,1
-            _classify_log_p_selected = classify_log_p.gather(2, node_group[:, :, None])[:,:,0]
+            _classify_log_p_selected = classify_log_p.gather(2, node_group[:, :, None])[:, :, 0]
 
-            _log_p_sum_ = _log_p_selected + _classify_log_p_selected ## 相当于是选择节点和分组的概率乘积  ## 32, 1, 1
-            total_logits_ = _log_p_selected[:,:,None] + classify_log_p ## 32, 1, 3
+            _log_p_sum_ = _log_p_selected + _classify_log_p_selected  ## 相当于是选择节点和分组的概率乘积  ## 32, 1, 1
+            total_logits_ = _logit_p_selected[:, :, None] + classify_logits  ## 32, 1, 3
 
             # Collect output of step
             log_p_s.append(_log_p_sum_)
