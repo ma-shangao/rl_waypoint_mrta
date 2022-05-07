@@ -225,7 +225,7 @@ if __name__ == '__main__':
         X = batch    # torch.Size([32, 50, 2])
 
         # compute the normalised adjacency matrix of the sample city set ::: adj take up 1/10
-        adj_norm = knn_graph_norm_adj(X, num_knn=4, knn_mode='distance')
+        adj_norm = knn_graph_norm_adj(X, num_knn=4, knn_mode='connectivity')
 
         # cluster_policy = get_policy(X, c_attention_model)
         # Assign labels according to the MLP policy
@@ -295,6 +295,7 @@ if __name__ == '__main__':
         # distance normalised by 10, this needs to be refined
 
         cost_d = (cost_d - cost_d.mean()) / (cost_d.std() + eps)
+        # cost = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
         cost = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
         logs['training_cost'].append(cost.mean().item())
 
@@ -316,6 +317,8 @@ if __name__ == '__main__':
         optimizer.step()
         lamb = lamb * hyper_params['lamb_decay']
 
+        writer.add_scalar('Rcc', Rcc, batch_id)
+        writer.add_scalar('Rco', Rco, batch_id)
         writer.add_scalar('lamb', lamb, batch_id)
         writer.add_scalar('cost_d', logs['cost_d'][-1], batch_id)
         writer.add_scalar('training_cost', logs['training_cost'][-1], batch_id)
