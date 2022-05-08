@@ -22,6 +22,8 @@ from matplotlib import pyplot as plt
 from tsp_solver import pointer_tsp_solve
 from rl_policy.MLP_model import ClusteringMLP
 from rl_policy.attention_model import AttentionModel
+# from rl_policy.gmm_model import GaussianMixture
+from rl_policy.gmm_gen_model import GMM_policy
 
 from tensorboardX import SummaryWriter
 from datetime import datetime, timedelta
@@ -98,7 +100,10 @@ def plot_grad_flow(named_parameters):
     max_grads = []
     layers = []
     for n, p in named_parameters:
+        # i = 0
         if p.requires_grad and ("bias" not in n):
+            # i += 1
+            # print(i, n)
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
             max_grads.append(p.grad.abs().max())
@@ -115,6 +120,8 @@ def plot_grad_flow(named_parameters):
     plt.legend([Line2D([0], [0], color="c", lw=4),
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
+
+    plt.savefig(hyper_params['log_dir'] + '/grad_flow.pdf', bbox_inches='tight')
 
 
 def save_training_log(path, logs):
@@ -178,10 +185,11 @@ if __name__ == '__main__':
         'lamb_decay': 1,
         'max_grad_norm': 10.0,
         'lr': 0.01,
-        'log_dir': 'logs_e2e_attention_dev',
+        'log_dir': 'logs_e2e_gmm_gen_dev',
         'embedding_dim': 128,
         'hidden_dim': 128,
         'problem': 'tsp',
+        'n_components': 3,
     }
 
     eps = np.finfo(np.float32).eps.item()
@@ -203,8 +211,9 @@ if __name__ == '__main__':
     # Instantiate the policy
     # c_mlp_model = ClusteringMLP(hyper_params['num_clusters'], hyper_params['feature_dim'],
     #                             hidden_dim=hyper_params['mlp_hidden_dim'])
-
-    c_attention_model = AttentionModel(problem, hyper_params['feature_dim'], hyper_params['embedding_dim'], hyper_params['hidden_dim'], hyper_params['city_num'])
+    # c_attention_model = AttentionModel(problem, hyper_params['feature_dim'], hyper_params['embedding_dim'], hyper_params['hidden_dim'], hyper_params['city_num'])
+    # c_gmm_model = GaussianMixture(hyper_params['n_components'], hyper_params['feature_dim'])
+    c_gmm_model = GMM_policy(hyper_params['n_components'], hyper_params['feature_dim'], hyper_params['hidden_dim'])
 
     # if use_minCUT_pretrained:
     #     c_mlp_model.load_state_dict(torch.load('ul_pretrained.pt'))
@@ -212,8 +221,8 @@ if __name__ == '__main__':
     # set the MLP into training mode
     # c_mlp_model.train()
     # optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=hyper_params['lr'])
-    c_attention_model.train()
-    optimizer = torch.optim.Adam(c_attention_model.parameters(), lr=hyper_params['lr'])
+    c_gmm_model.train()
+    optimizer = torch.optim.Adam(c_gmm_model.parameters(), lr=hyper_params['lr'])
 
     # some loggers
     logs = {'training_cost': [], 'cost_d': [], 'training_rl_loss': [], 'grad_norms': []}
@@ -233,11 +242,18 @@ if __name__ == '__main__':
         # ll = cluster_policy.log_prob(a)
         # assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
-        log_p_sum, selected_sequences, node_groups, cluster_policy_logits = c_attention_model(X)
+        bs, sequence_len, feature_dim = hyper_params['batch_size'], hyper_params['city_num'], hyper_params['feature_dim']
+        # X_reshape = X.reshape(-1, feature_dim) # pi, logits, log_p
+        node_groups, cluster_policy_logits, log_p_sum = c_gmm_model(X)  # torch.Size([32, 50, 2])
+        a = node_groups
+        cluster_policy_logits = cluster_policy_logits
+        # ll = torch.gather(log_p_sum, -1, a[:, :, None]).reshape(bs, sequence_len)
+        ll = log_p_sum.reshape(bs, sequence_len)
+
         ### sorted for the right group order
-        sorted_selected_sequences, sorted_indices = torch.sort(selected_sequences, dim=1)
-        a = torch.gather(node_groups, 1, sorted_indices)[:,:,0]  ## 32.50
-        ll = log_p_sum[:,:,0] # 32.50
+        # sorted_selected_sequences, sorted_indices = torch.sort(selected_sequences, dim=1)
+        # a = torch.gather(node_groups, 1, sorted_indices)[:,:,0]  ## 32.50
+        # ll = log_p_sum[:,:,0] # 32.50
 
         # Rcc and Rco are mean losses among the batch
         _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, cluster_policy_logits)
@@ -300,11 +316,15 @@ if __name__ == '__main__':
         # add baseline later
         # reinforce_loss = ((cost - base_line) * ll).mean()
         # cost = (cost - cost.mean()) / (cost.std() + eps)
-        reinforce_loss = (cost * ll.sum(-1)).mean()  ## rjq:这应该是sum 不是mean
+        reinforce_loss = (cost * ll.sum(-1)).mean()  ## rjq:这应该是sum 不是mean\\
         logs['training_rl_loss'].append(reinforce_loss.item())
 
+        ######################-----------------------------------
+        # print([p for p in c_gmm_model.parameters()][0])
+        # print([p for p in c_gmm_model.parameters()][1])
         # Perform backward pass and optimization step
         optimizer.zero_grad()
+        reinforce_loss.requres_grad = True
         reinforce_loss.backward()
 
         # Clip gradient norms and get (clipped) gradient norms for logging
@@ -315,8 +335,8 @@ if __name__ == '__main__':
         lamb = lamb * hyper_params['lamb_decay']
 
         ######################-----------------------------------
-        # print([p for p in c_attention_model.parameters()][0])
-        print([p for p in c_attention_model.parameters()][1][:2])
+        # print([p for p in c_gmm_model.parameters()][0])
+        # print([p for p in c_gmm_model.parameters()][1][:2])
 
         writer.add_scalar('lamb', lamb, batch_id)
         writer.add_scalar('cost_d', logs['cost_d'][-1], batch_id)
@@ -330,7 +350,7 @@ if __name__ == '__main__':
             # print("total length: {}".format(logs['cost_d'][-1]))
 
             if gradient_check_flag:
-                plot_grad_flow(c_attention_model.named_parameters())
+                plot_grad_flow(c_gmm_model.named_parameters())
 
             plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='show')
 
@@ -341,7 +361,10 @@ if __name__ == '__main__':
             plt.xlabel('batch_id')
             plt.ylabel('total_distance')
             plt.legend()
+
+            plt.savefig(hyper_params['log_dir'] + '/clustering_2d.pdf', bbox_inches='tight')
+
             plt.show()
-            torch.save(c_attention_model.state_dict(), 'example_model.pt')
+            torch.save(c_gmm_model.state_dict(), 'example_model.pt')
 
     save_training_log('logfiles', logs)

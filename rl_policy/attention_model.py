@@ -283,20 +283,20 @@ class AttentionModel(nn.Module):
             #### 选结点，并将其进行分组
             selected = self._select_node(log_p.exp()[:, 0, :], mask[:, 0, :])  # Squeeze out steps dimension
             state = state.update(selected)
-            _log_p_selected = log_p.gather(2, selected[:, None, None])[:, :, 0]
-            _logit_p_selected = logit_p.gather(2, selected[:, None, None])[:, :, 0]
+            _log_p_selected = log_p.gather(2, selected[:, None, None])[:,:,0]
+            _logit_p_selected = logit_p.gather(2, selected[:, None, None])[:,:,0]
             ### groups
             group_embedding = torch.cat((glimpse, self.cur_logits_selected_unmasked), dim=-1)
             classify_logits = self.group_classifier(group_embedding)
-            classify_logits = torch.nn.Sigmoid()(classify_logits)  # ACTIVATE
+            classify_logits = torch.nn.Sigmoid()(classify_logits) # ACTIVATE
             classify_log_p = torch.log_softmax(classify_logits / self.temp, dim=-1)
 
-            node_group = self._select_groups(classify_log_p.exp()[:, 0, :])[:, None]
+            node_group = self._select_groups(classify_log_p.exp()[:,0,:])[:, None]
             # _, node_group = classify_log_p.exp().max(-1)  ## 32,1
-            _classify_log_p_selected = classify_log_p.gather(2, node_group[:, :, None])[:, :, 0]
+            _classify_log_p_selected = classify_log_p.gather(2, node_group[:, :, None])[:,:,0]
 
-            _log_p_sum_ = _log_p_selected + _classify_log_p_selected  ## 相当于是选择节点和分组的概率乘积  ## 32, 1, 1
-            total_logits_ = _logit_p_selected[:, :, None] + classify_logits  ## 32, 1, 3
+            _log_p_sum_ = _log_p_selected + _classify_log_p_selected ## 相当于是选择节点和分组的概率乘积  ## 32, 1, 1
+            total_logits_ = _logit_p_selected[:,:,None] + classify_logits ## 32, 1, 3
 
             # Collect output of step
             log_p_s.append(_log_p_sum_)

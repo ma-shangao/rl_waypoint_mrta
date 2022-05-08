@@ -289,6 +289,10 @@ if __name__ == '__main__':
         optimizer.step()
         lamb = lamb * hyper_params['lamb_decay']
 
+        ######################-----------------------------------
+        # print([p for p in c_mlp_model.parameters()][0])
+        print([p for p in c_mlp_model.parameters()][1][:2])
+
         writer.add_scalar('lamb', lamb, batch_id)
         writer.add_scalar('cost_d', logs['cost_d'][-1], batch_id)
         writer.add_scalar('training_cost', logs['training_cost'][-1], batch_id)
