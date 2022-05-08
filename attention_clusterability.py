@@ -176,7 +176,7 @@ def main(hparams):
         optimizer.step()
 
         writer.add_scalar('NMI', nmi, batch_id)
-        writer.add_scalar('Training RL loss', reinforce_loss.item(), batch_id)
+        writer.add_scalar('Training_RL_loss', reinforce_loss.item(), batch_id)
 
         if batch_id % hparams['plot_interval'] == 0:
             writer.add_figure('clustering showcase',
