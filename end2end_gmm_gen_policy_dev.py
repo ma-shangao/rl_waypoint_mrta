@@ -20,14 +20,15 @@ from sklearn.neighbors import kneighbors_graph
 from matplotlib import pyplot as plt
 
 from tsp_solver import pointer_tsp_solve
-from rl_policy.MLP_model import ClusteringMLP
-from rl_policy.attention_model import AttentionModel
+# from rl_policy.MLP_model import ClusteringMLP
+# from rl_policy.attention_model import AttentionModel
 # from rl_policy.gmm_model import GaussianMixture
 from rl_policy.gmm_gen_model import GMM_policy
 
 from tensorboardX import SummaryWriter
 from datetime import datetime, timedelta
-from utils import torch_load_cpu, load_problem
+from utils import load_problem
+
 
 class TSPDataset(Dataset):
     def __init__(self, filename=None, size=20, num_samples=1000000, offset=0, distribution=None):
@@ -86,7 +87,7 @@ def clip_grad_norms(param_groups, max_norm=math.inf):
         )
         for group in param_groups
     ]
-    grad_norms_clipped = [min(g_norm, max_norm) for g_norm in grad_norms] if max_norm > 0 else grad_norms
+    grad_norms_clipped = [min(g_norm, torch.tensor(max_norm)) for g_norm in grad_norms] if max_norm > 0 else grad_norms
     return grad_norms, grad_norms_clipped
 
 
@@ -124,21 +125,8 @@ def plot_grad_flow(named_parameters):
     plt.savefig(hyper_params['log_dir'] + '/grad_flow.pdf', bbox_inches='tight')
 
 
-def save_training_log(path, logs):
-    """
-    save logs into pickle file
-    :param path: string, directory to save the logfile
-    :param logs: dictionary, keys are names of the logs, elements are lists of floats
-    :return:
-    """
-    # make sure the given path exists
-    assert os.path.exists(path), 'Given path, "{}", for saving logfiles does not exist.'.format(path)
-    # create the logfile with the time stamp
-    pickle.dump(logs, open(os.path.join(path, 'log_at_{}.pkl'.format(time.asctime(time.localtime()))), "wb"))
-
-
-def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/home/masong/data/rl_clustering_pics'):
-    assert showcase_mode == ('show' or 'save'), 'param: showcase_mode should be either "show" or "save".'
+def plot_the_clustering_2d(cluster_num, a, x, showcase_mode='show', save_path='/home/masong/data/rl_clustering_pics'):
+    assert showcase_mode in ['show', 'save', 'obj'], 'param: showcase_mode should be among "obj", "show" or "save".'
 
     colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
 
@@ -146,18 +134,19 @@ def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/
     ax = clusters_fig.add_subplot(111)
 
     for i in range(cluster_num):
-        indC = np.squeeze(np.argwhere(a == i))
-        X_C = X[indC]
-        if X_C.dim() == 1:
-            X_C = torch.unsqueeze(X_C, 0)
-        ax.scatter(X_C[:, 0], X_C[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
+        ind_c = np.squeeze(np.argwhere(a == i))
+        x_c = x[ind_c]
+        if x_c.dim() == 1:
+            x_c = torch.unsqueeze(x_c, 0)
+        ax.scatter(x_c[:, 0], x_c[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
 
-    plt.savefig(hyper_params['log_dir'] + '/clustering_2d.pdf', bbox_inches='tight')
     if showcase_mode == 'show':
         clusters_fig.show()
     elif showcase_mode == 'save':
         clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
                                           .format(time.asctime(time.localtime()))))
+    elif showcase_mode == 'obj':
+        return clusters_fig
 
 
 # make function to compute action distribution
@@ -191,6 +180,7 @@ if __name__ == '__main__':
         'hidden_dim': 128,
         'problem': 'tsp',
         'n_components': 3,
+        'plot_interval': 200
     }
 
     eps = np.finfo(np.float32).eps.item()
@@ -247,7 +237,7 @@ if __name__ == '__main__':
         # X_reshape = X.reshape(-1, feature_dim) # pi, logits, log_p
         node_groups, cluster_policy_logits, log_p_sum = c_gmm_model(X)  # torch.Size([32, 50, 2])
         a = node_groups
-        cluster_policy_logits = cluster_policy_logits
+
         # ll = torch.gather(log_p_sum, -1, a[:, :, None]).reshape(bs, sequence_len)
         ll = log_p_sum.reshape(bs, sequence_len)
 
@@ -345,7 +335,7 @@ if __name__ == '__main__':
         writer.add_scalar('training_rl_loss', logs['training_rl_loss'][-1], batch_id)
         # writer.add_scalar('training_rl_loss', logs['training_rl_loss'][-1], batch_id)
 
-        if batch_id % 200 == 0:
+        if batch_id % hyper_params['plot_interval'] == 0:
             # print("loss: {}".format(reinforce_loss))
             # print("grad_norm: {}".format(grad_norms[0][0].item()))
             # print("total length: {}".format(logs['cost_d'][-1]))
@@ -353,19 +343,6 @@ if __name__ == '__main__':
             if gradient_check_flag:
                 plot_grad_flow(c_gmm_model.named_parameters())
 
-            plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='show')
-
-            # Plot the loss, cost lines
-            plt.figure(figsize=(10, 5))
-            plt.subplot(111)
-            plt.plot(logs['cost_d'], label="total distance")
-            plt.xlabel('batch_id')
-            plt.ylabel('total_distance')
-            plt.legend()
-
-            plt.savefig(hyper_params['log_dir'] + '/cost_d.pdf', bbox_inches='tight')
-
-            plt.show()
-            torch.save(c_gmm_model.state_dict(), 'example_model.pt')
-
-    save_training_log('logfiles', logs)
+            writer.add_figure('clustering showcase',
+                              plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='obj'),
+                              batch_id)

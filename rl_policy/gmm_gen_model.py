@@ -1,11 +1,12 @@
 from torch import nn
 import torch.nn.functional as F
 import torch
-from torch.distributions.multivariate_normal import MultivariateNormal
+# from torch.distributions.multivariate_normal import MultivariateNormal
 from torch.distributions.categorical import Categorical
 from matplotlib import pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
+
 
 class MLP_policy(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
@@ -53,9 +54,8 @@ class GMM_policy(nn.Module):
         logits = log_pi.exp()
         action_distribution = Categorical(logits)
         sample_groups = action_distribution.sample()
-        log_sample = action_distribution.log_prob(sample_groups)[:,:,None]
+        log_sample = action_distribution.log_prob(sample_groups)[:, :, None]
         return sample_groups, logits, log_sample
-
 
 
 def plot_grad_flow(named_parameters):
@@ -85,7 +85,6 @@ def plot_grad_flow(named_parameters):
     plt.legend([Line2D([0], [0], color="c", lw=4),
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
-
 
 
 if __name__ == "__main__":
