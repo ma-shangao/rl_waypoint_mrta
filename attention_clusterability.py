@@ -163,7 +163,6 @@ def main(hparams):
             nmi[m] = v_measure_score(gt[m], a[m])
         nmi = nmi.mean()
 
-        # Todo: Confirm mean() or sum() and why?
         reinforce_loss = -(nmi*ll.sum(-1)).mean()
 
         # Perform backward pass and optimization step
