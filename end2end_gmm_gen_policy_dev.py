@@ -152,6 +152,7 @@ def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/
             X_C = torch.unsqueeze(X_C, 0)
         ax.scatter(X_C[:, 0], X_C[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
 
+    plt.savefig(hyper_params['log_dir'] + '/clustering_2d.pdf', bbox_inches='tight')
     if showcase_mode == 'show':
         clusters_fig.show()
     elif showcase_mode == 'save':
@@ -300,7 +301,7 @@ if __name__ == '__main__':
             # else:
             cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
 
-        # if degeneration_flag is True:  ### rjq：？？？？ 这不对吧
+        # if degeneration_flag is True:
         #     cost_d[degeneration_ind] = 10 * cost_d.max()
         logs['cost_d'].append(cost_d.mean().item())
         print("----------cost_d:::", logs['cost_d'][-1], "----------degeneration_ratio:::", degeneration_count/(batch.shape[0] * hyper_params['num_clusters']))
@@ -362,7 +363,7 @@ if __name__ == '__main__':
             plt.ylabel('total_distance')
             plt.legend()
 
-            plt.savefig(hyper_params['log_dir'] + '/clustering_2d.pdf', bbox_inches='tight')
+            plt.savefig(hyper_params['log_dir'] + '/cost_d.pdf', bbox_inches='tight')
 
             plt.show()
             torch.save(c_gmm_model.state_dict(), 'example_model.pt')
