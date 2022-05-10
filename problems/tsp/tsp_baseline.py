@@ -4,8 +4,8 @@ import os
 import time
 from datetime import timedelta
 from scipy.spatial import distance_matrix
-from utils import run_all_in_pool
-from utils.data_utils import check_extension, load_dataset, save_dataset
+from attention2route_utils import run_all_in_pool
+from attention2route_utils.data_utils import check_extension, load_dataset, save_dataset
 from subprocess import check_call, check_output, CalledProcessError
 from problems.vrp.vrp_baseline import get_lkh_executable
 import torch
@@ -307,7 +307,7 @@ def solve_all_nn(dataset_path, eval_batch_size=1024, no_cuda=False, dataset_n=No
     import torch
     from torch.utils.data import DataLoader
     from problems import TSP
-    from utils import move_to
+    from attention2route_utils import move_to
 
     dataloader = DataLoader(
         TSP.make_dataset(filename=dataset_path, num_samples=dataset_n if dataset_n is not None else 1000000),

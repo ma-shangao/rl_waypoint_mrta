@@ -1,8 +1,8 @@
 import argparse
 import os
 import numpy as np
-from utils import run_all_in_pool
-from utils.data_utils import check_extension, load_dataset, save_dataset
+from attention2route_utils import run_all_in_pool
+from attention2route_utils.data_utils import check_extension, load_dataset, save_dataset
 from subprocess import check_call, check_output
 import tempfile
 import time
@@ -240,7 +240,7 @@ def run_all_tsiligirides(
         progress_bar_mininterval=0.1, seed=1234):
     import torch
     from torch.utils.data import DataLoader
-    from utils import move_to, sample_many
+    from attention2route_utils import move_to, sample_many
     from problems.op.tsiligirides import op_tsiligirides
     from problems.op.problem_op import OP
     torch.manual_seed(seed)

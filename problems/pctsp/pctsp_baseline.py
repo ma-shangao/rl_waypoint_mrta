@@ -1,8 +1,8 @@
 import argparse
 import os
 import numpy as np
-from utils import run_all_in_pool
-from utils.data_utils import check_extension, load_dataset, save_dataset
+from attention2route_utils import run_all_in_pool
+from attention2route_utils.data_utils import check_extension, load_dataset, save_dataset
 from subprocess import check_call, check_output
 import re
 import time

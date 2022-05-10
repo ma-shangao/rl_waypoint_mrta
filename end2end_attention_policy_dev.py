@@ -25,7 +25,7 @@ from rl_policy.attention_model import AttentionModel
 
 from tensorboardX import SummaryWriter
 from datetime import datetime, timedelta
-from utils import torch_load_cpu, load_problem
+from attention2route_utils import torch_load_cpu, load_problem
 
 class TSPDataset(Dataset):
     def __init__(self, filename=None, size=20, num_samples=1000000, offset=0, distribution=None):

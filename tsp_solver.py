@@ -31,7 +31,7 @@ def pointer_tsp_solve(points_coordinate):
                 length: float, total distance of the tour
     """
 
-    from utils import load_model
+    from attention2route_utils import load_model
     model, _ = load_model('rl_tsp_pretrained/tsp_20/')
     model.eval()  # Put in evaluation mode to not track gradients
 

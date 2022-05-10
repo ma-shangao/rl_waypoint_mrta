@@ -2,13 +2,13 @@ import argparse
 import os
 import numpy as np
 import re
-from utils.data_utils import check_extension, load_dataset, save_dataset
+from attention2route_utils.data_utils import check_extension, load_dataset, save_dataset
 from subprocess import check_call, check_output
 from urllib.parse import urlparse
 import tempfile
 import time
 from datetime import timedelta
-from utils import run_all_in_pool
+from attention2route_utils import run_all_in_pool
 
 
 def get_lkh_executable(url="http://www.akira.ruc.dk/~keld/research/LKH-3/LKH-3.0.4.tgz"):

@@ -5,7 +5,7 @@ import pickle
 
 from problems.vrp.state_cvrp import StateCVRP
 from problems.vrp.state_sdvrp import StateSDVRP
-from utils.beam_search import beam_search
+from attention2route_utils.beam_search import beam_search
 
 
 class CVRP(object):

@@ -22,7 +22,8 @@ from matplotlib import pyplot as plt
 from tsp_solver import pointer_tsp_solve
 from rl_policy.MLP_model import ClusteringMLP
 from rl_policy.attention_model import AttentionModel
-from rl_policy.gmm_model import GaussianMixture
+# from rl_policy.gmm_model import GaussianMixture
+from rl_policy.mlp_gen_model import MLP_gen_policy
 
 from tensorboardX import SummaryWriter
 from datetime import datetime, timedelta
@@ -99,7 +100,10 @@ def plot_grad_flow(named_parameters):
     max_grads = []
     layers = []
     for n, p in named_parameters:
+        # i = 0
         if p.requires_grad and ("bias" not in n):
+            # i += 1
+            # print(i, n)
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
             max_grads.append(p.grad.abs().max())
@@ -116,6 +120,8 @@ def plot_grad_flow(named_parameters):
     plt.legend([Line2D([0], [0], color="c", lw=4),
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
+
+    plt.savefig(hyper_params['log_dir'] + '/grad_flow.pdf', bbox_inches='tight')
 
 
 def save_training_log(path, logs):
@@ -146,6 +152,7 @@ def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/
             X_C = torch.unsqueeze(X_C, 0)
         ax.scatter(X_C[:, 0], X_C[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
 
+    plt.savefig(hyper_params['log_dir'] + '/clustering_2d.pdf', bbox_inches='tight')
     if showcase_mode == 'show':
         clusters_fig.show()
     elif showcase_mode == 'save':
@@ -179,7 +186,7 @@ if __name__ == '__main__':
         'lamb_decay': 1,
         'max_grad_norm': 10.0,
         'lr': 0.01,
-        'log_dir': 'logs_e2e_attention_dev',
+        'log_dir': 'logs_e2e_mlp_gen_dev',
         'embedding_dim': 128,
         'hidden_dim': 128,
         'problem': 'tsp',
@@ -206,7 +213,8 @@ if __name__ == '__main__':
     # c_mlp_model = ClusteringMLP(hyper_params['num_clusters'], hyper_params['feature_dim'],
     #                             hidden_dim=hyper_params['mlp_hidden_dim'])
     # c_attention_model = AttentionModel(problem, hyper_params['feature_dim'], hyper_params['embedding_dim'], hyper_params['hidden_dim'], hyper_params['city_num'])
-    c_gmm_model = GaussianMixture(hyper_params['n_components'], hyper_params['feature_dim'])
+    # c_gmm_model = GaussianMixture(hyper_params['n_components'], hyper_params['feature_dim'])
+    c_mlp_model = MLP_gen_policy(hyper_params['n_components'], hyper_params['feature_dim'], hyper_params['hidden_dim'])
 
     # if use_minCUT_pretrained:
     #     c_mlp_model.load_state_dict(torch.load('ul_pretrained.pt'))
@@ -214,8 +222,8 @@ if __name__ == '__main__':
     # set the MLP into training mode
     # c_mlp_model.train()
     # optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=hyper_params['lr'])
-    c_gmm_model.train()
-    optimizer = torch.optim.Adam(c_gmm_model.parameters(), lr=hyper_params['lr'])
+    c_mlp_model.train()
+    optimizer = torch.optim.Adam(c_mlp_model.parameters(), lr=hyper_params['lr'])
 
     # some loggers
     logs = {'training_cost': [], 'cost_d': [], 'training_rl_loss': [], 'grad_norms': []}
@@ -236,10 +244,11 @@ if __name__ == '__main__':
         # assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
 
         bs, sequence_len, feature_dim = hyper_params['batch_size'], hyper_params['city_num'], hyper_params['feature_dim']
-        X_reshape = X.reshape(-1, feature_dim) # pi, logits, log_p
-        node_groups, cluster_policy_logits, log_p_sum = c_gmm_model(X_reshape)  # torch.Size([32, 50, 2])
-        a = node_groups.reshape(bs, sequence_len)
-        cluster_policy_logits = cluster_policy_logits.reshape(bs, sequence_len, -1)
+        # X_reshape = X.reshape(-1, feature_dim) # pi, logits, log_p
+        node_groups, cluster_policy_logits, log_p_sum = c_mlp_model(X)  # torch.Size([32, 50, 2])
+        a = node_groups
+        cluster_policy_logits = cluster_policy_logits
+        # ll = torch.gather(log_p_sum, -1, a[:, :, None]).reshape(bs, sequence_len)
         ll = log_p_sum.reshape(bs, sequence_len)
 
         ### sorted for the right group order
@@ -292,7 +301,7 @@ if __name__ == '__main__':
             # else:
             cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
 
-        # if degeneration_flag is True:  ### rjq：？？？？ 这不对吧
+        # if degeneration_flag is True:
         #     cost_d[degeneration_ind] = 10 * cost_d.max()
         logs['cost_d'].append(cost_d.mean().item())
         print("----------cost_d:::", logs['cost_d'][-1], "----------degeneration_ratio:::", degeneration_count/(batch.shape[0] * hyper_params['num_clusters']))
@@ -311,6 +320,9 @@ if __name__ == '__main__':
         reinforce_loss = (cost * ll.sum(-1)).mean()  ## rjq:这应该是sum 不是mean\\
         logs['training_rl_loss'].append(reinforce_loss.item())
 
+        ######################-----------------------------------
+        # print([p for p in c_gmm_model.parameters()][0])
+        # print([p for p in c_gmm_model.parameters()][1])
         # Perform backward pass and optimization step
         optimizer.zero_grad()
         reinforce_loss.requires_grad = True
@@ -322,6 +334,10 @@ if __name__ == '__main__':
 
         optimizer.step()
         lamb = lamb * hyper_params['lamb_decay']
+
+        ######################-----------------------------------
+        # print([p for p in c_gmm_model.parameters()][0])
+        # print([p for p in c_gmm_model.parameters()][1][:2])
 
         writer.add_scalar('lamb', lamb, batch_id)
         writer.add_scalar('cost_d', logs['cost_d'][-1], batch_id)
@@ -335,7 +351,7 @@ if __name__ == '__main__':
             # print("total length: {}".format(logs['cost_d'][-1]))
 
             if gradient_check_flag:
-                plot_grad_flow(c_gmm_model.named_parameters())
+                plot_grad_flow(c_mlp_model.named_parameters())
 
             plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='show')
 
@@ -346,7 +362,10 @@ if __name__ == '__main__':
             plt.xlabel('batch_id')
             plt.ylabel('total_distance')
             plt.legend()
+
+            plt.savefig(hyper_params['log_dir'] + '/cost_d.pdf', bbox_inches='tight')
+
             plt.show()
-            torch.save(c_gmm_model.state_dict(), 'example_model.pt')
+            torch.save(c_mlp_model.state_dict(), 'example_model.pt')
 
     save_training_log('logfiles', logs)

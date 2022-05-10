@@ -1,23 +1,12 @@
-import time
-
 import numpy as np
 import os
-import math
-import pickle
-
-from matplotlib.lines import Line2D
 from tqdm import tqdm
 
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 from torch_geometric.nn import dense_mincut_pool
-from spektral.utils import normalized_adjacency
 from torch.distributions.categorical import Categorical
-
-from sklearn.neighbors import kneighbors_graph
-
-from matplotlib import pyplot as plt
 
 from tsp_solver import pointer_tsp_solve
 # from rl_policy.MLP_model import ClusteringMLP
@@ -27,126 +16,10 @@ from rl_policy.gmm_gen_model import GMM_policy
 
 from tensorboardX import SummaryWriter
 from datetime import datetime, timedelta
-from utils import load_problem
 
-
-class TSPDataset(Dataset):
-    def __init__(self, filename=None, size=20, num_samples=1000000, offset=0, distribution=None):
-        super(TSPDataset, self).__init__()
-
-        self.data_set = []
-        if filename is not None:
-            assert os.path.splitext(filename)[1] == '.pkl'
-
-            with open(filename, 'rb') as f:
-                data = pickle.load(f)
-                self.data = [torch.FloatTensor(row) for row in (data[offset:offset + num_samples])]
-        else:
-            # Sample points randomly in [0, 1] square
-            self.data = [torch.FloatTensor(size, 2).uniform_(0, 1) for i in range(num_samples)]
-
-        self.size = len(self.data)
-
-    def __len__(self):
-        return self.size
-
-    def __getitem__(self, idx):
-        return self.data[idx]
-
-
-def knn_graph_norm_adj(x, num_knn=4, knn_mode='distance'):
-    x = x.numpy()
-    batch_size = x.shape[0]
-    n_node = x.shape[1]
-    batch_adj = np.zeros((batch_size, n_node, n_node))
-
-    for bat in range(batch_size):
-        adj = kneighbors_graph(x[bat, :, :], n_neighbors=num_knn, mode=knn_mode).todense()
-        # argument explanation: mode='distance', weighted adjacency matrix, mode=’connectivity’, binary adjacency matrix
-
-        adj = np.asarray(adj)
-        adj = np.maximum(adj, adj.T)
-        # adj = sp.csr_matrix(adj, dtype=np.float32)
-        batch_adj[bat, :, :] = normalized_adjacency(adj)
-
-    return torch.tensor(batch_adj, dtype=torch.float32)
-
-
-def clip_grad_norms(param_groups, max_norm=math.inf):
-    """
-    Clips the norms for all param groups to max_norm and returns gradient norms before clipping
-    :param param_groups:
-    :param max_norm:
-    :return: grad_norms, clipped_grad_norms: list with (clipped) gradient norms per group
-    """
-    grad_norms = [
-        torch.nn.utils.clip_grad_norm_(
-            group['params'],
-            max_norm if max_norm > 0 else math.inf,  # Inf so no clipping but still call to calc
-            norm_type=2
-        )
-        for group in param_groups
-    ]
-    grad_norms_clipped = [min(g_norm, torch.tensor(max_norm)) for g_norm in grad_norms] if max_norm > 0 else grad_norms
-    return grad_norms, grad_norms_clipped
-
-
-def plot_grad_flow(named_parameters):
-    """Plots the gradients flowing through different layers in the net during training.
-    Can be used for checking for possible gradient vanishing / exploding problems.
-
-    Usage: Plug this function in Trainer class after loss.backwards() as
-    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow"""
-    ave_grads = []
-    max_grads = []
-    layers = []
-    for n, p in named_parameters:
-        # i = 0
-        if p.requires_grad and ("bias" not in n):
-            # i += 1
-            # print(i, n)
-            layers.append(n)
-            ave_grads.append(p.grad.abs().mean())
-            max_grads.append(p.grad.abs().max())
-    plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
-    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
-    plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
-    plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
-    plt.xlim(left=0, right=len(ave_grads))
-    plt.ylim(bottom=-0.001, top=0.02)  # zoom in on the lower gradient regions
-    plt.xlabel("Layers")
-    plt.ylabel("average gradient")
-    plt.title("Gradient flow")
-    plt.grid(True)
-    plt.legend([Line2D([0], [0], color="c", lw=4),
-                Line2D([0], [0], color="b", lw=4),
-                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
-
-    plt.savefig(hyper_params['log_dir'] + '/grad_flow.pdf', bbox_inches='tight')
-
-
-def plot_the_clustering_2d(cluster_num, a, x, showcase_mode='show', save_path='/home/masong/data/rl_clustering_pics'):
-    assert showcase_mode in ['show', 'save', 'obj'], 'param: showcase_mode should be among "obj", "show" or "save".'
-
-    colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
-
-    clusters_fig = plt.figure(dpi=300.0)
-    ax = clusters_fig.add_subplot(111)
-
-    for i in range(cluster_num):
-        ind_c = np.squeeze(np.argwhere(a == i))
-        x_c = x[ind_c]
-        if x_c.dim() == 1:
-            x_c = torch.unsqueeze(x_c, 0)
-        ax.scatter(x_c[:, 0], x_c[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
-
-    if showcase_mode == 'show':
-        clusters_fig.show()
-    elif showcase_mode == 'save':
-        clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
-                                          .format(time.asctime(time.localtime()))))
-    elif showcase_mode == 'obj':
-        return clusters_fig
+from dataset_preparation import TSPDataset
+from utilities import knn_graph_norm_adj, clip_grad_norms
+from visualisation import plot_grad_flow, plot_the_clustering_2d
 
 
 # make function to compute action distribution
@@ -178,7 +51,6 @@ if __name__ == '__main__':
         'log_dir': 'logs_e2e_gmm_gen_dev',
         'embedding_dim': 128,
         'hidden_dim': 128,
-        'problem': 'tsp',
         'n_components': 3,
         'plot_interval': 200
     }
@@ -186,9 +58,7 @@ if __name__ == '__main__':
     eps = np.finfo(np.float32).eps.item()
     cur_time = datetime.now() + timedelta(hours=0)
 
-    writer = SummaryWriter(logdir=hyper_params['log_dir'] + "/" + cur_time.strftime("[%m-%d]%H.%M.%S"))
-    # Figure out what's the problem
-    problem = load_problem(hyper_params['problem'])
+    writer = SummaryWriter(logdir=os.path.join(hyper_params['log_dir'], cur_time.strftime("[%m-%d]%H.%M.%S")))
 
     lamb = hyper_params['lamb']
     gradient_check_flag = True
@@ -200,10 +70,6 @@ if __name__ == '__main__':
     train_iterator = DataLoader(dataset, batch_size=hyper_params['batch_size'], num_workers=1)
 
     # Instantiate the policy
-    # c_mlp_model = ClusteringMLP(hyper_params['num_clusters'], hyper_params['feature_dim'],
-    #                             hidden_dim=hyper_params['mlp_hidden_dim'])
-    # c_attention_model = AttentionModel(problem, hyper_params['feature_dim'], hyper_params['embedding_dim'], hyper_params['hidden_dim'], hyper_params['city_num'])
-    # c_gmm_model = GaussianMixture(hyper_params['n_components'], hyper_params['feature_dim'])
     c_gmm_model = GMM_policy(hyper_params['n_components'], hyper_params['feature_dim'], hyper_params['hidden_dim'])
 
     # if use_minCUT_pretrained:
@@ -231,9 +97,12 @@ if __name__ == '__main__':
         # a.shape == (batch, N)
         # compute the logarithmic probability of the taken action, ll.shape == [batch_size, 50]
         # ll = cluster_policy.log_prob(a)
-        # assert (ll > -1000).data.all(), "Logprobs should not be -inf, check sampling procedure!"
+        # assert (ll > -1000).data.all(), "Log probs should not be -inf, check sampling procedure!"
 
-        bs, sequence_len, feature_dim = hyper_params['batch_size'], hyper_params['city_num'], hyper_params['feature_dim']
+        bs = hyper_params['batch_size']
+        sequence_len = hyper_params['city_num']
+        feature_dim = hyper_params['feature_dim']
+
         # X_reshape = X.reshape(-1, feature_dim) # pi, logits, log_p
         node_groups, cluster_policy_logits, log_p_sum = c_gmm_model(X)  # torch.Size([32, 50, 2])
         a = node_groups
@@ -241,7 +110,7 @@ if __name__ == '__main__':
         # ll = torch.gather(log_p_sum, -1, a[:, :, None]).reshape(bs, sequence_len)
         ll = log_p_sum.reshape(bs, sequence_len)
 
-        ### sorted for the right group order
+        # sorted for the right group order
         # sorted_selected_sequences, sorted_indices = torch.sort(selected_sequences, dim=1)
         # a = torch.gather(node_groups, 1, sorted_indices)[:,:,0]  ## 32.50
         # ll = log_p_sum[:,:,0] # 32.50
@@ -294,8 +163,12 @@ if __name__ == '__main__':
         # if degeneration_flag is True:
         #     cost_d[degeneration_ind] = 10 * cost_d.max()
         logs['cost_d'].append(cost_d.mean().item())
-        print("----------cost_d:::", logs['cost_d'][-1], "----------degeneration_ratio:::", degeneration_count/(batch.shape[0] * hyper_params['num_clusters']))
-        writer.add_scalar('degeneration_ratio', degeneration_count/(batch.shape[0] * hyper_params['num_clusters']), batch_id)
+        print("----------cost_d:::", logs['cost_d'][-1], "----------degeneration_ratio:::",
+              degeneration_count/(batch.shape[0] * hyper_params['num_clusters']))
+
+        writer.add_scalar('degeneration_ratio',
+                          degeneration_count/(batch.shape[0] * hyper_params['num_clusters']),
+                          batch_id)
 
         # distance normalised by 10, this needs to be refined
 
@@ -306,16 +179,17 @@ if __name__ == '__main__':
         # base_line = cost.mean()
         # add baseline later
         # reinforce_loss = ((cost - base_line) * ll).mean()
-        # cost = (cost - cost.mean()) / (cost.std() + eps)
-        reinforce_loss = (cost * ll.sum(-1)).mean()  ## rjq:这应该是sum 不是mean\\
+
+        reinforce_loss = (cost * ll.sum(-1)).mean()
         logs['training_rl_loss'].append(reinforce_loss.item())
 
-        ######################-----------------------------------
+        # -----------------------------------
         # print([p for p in c_gmm_model.parameters()][0])
         # print([p for p in c_gmm_model.parameters()][1])
+
         # Perform backward pass and optimization step
         optimizer.zero_grad()
-        reinforce_loss.requres_grad = True
+        # reinforce_loss.requires_grad = True
         reinforce_loss.backward()
 
         # Clip gradient norms and get (clipped) gradient norms for logging
@@ -325,7 +199,7 @@ if __name__ == '__main__':
         optimizer.step()
         lamb = lamb * hyper_params['lamb_decay']
 
-        ######################-----------------------------------
+        # -----------------------------------
         # print([p for p in c_gmm_model.parameters()][0])
         # print([p for p in c_gmm_model.parameters()][1][:2])
 
@@ -336,12 +210,9 @@ if __name__ == '__main__':
         # writer.add_scalar('training_rl_loss', logs['training_rl_loss'][-1], batch_id)
 
         if batch_id % hyper_params['plot_interval'] == 0:
-            # print("loss: {}".format(reinforce_loss))
-            # print("grad_norm: {}".format(grad_norms[0][0].item()))
-            # print("total length: {}".format(logs['cost_d'][-1]))
 
             if gradient_check_flag:
-                plot_grad_flow(c_gmm_model.named_parameters())
+                plot_grad_flow(c_gmm_model.named_parameters(), hyper_params['log_dir'])
 
             writer.add_figure('clustering showcase',
                               plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='obj'),
