@@ -67,4 +67,5 @@ def plot_grad_flow(named_parameters, logdir: str):
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
 
-    plt.savefig(logdir + '/grad_flow.pdf', bbox_inches='tight')
+    save_dir = os.path.join(logdir, 'grad_flow.pdf')
+    plt.savefig(save_dir, bbox_inches='tight')
