@@ -158,7 +158,7 @@ if __name__ == '__main__':
             #     degeneration_ind.append(m)
             #     cost_d[m] = 10
             # else:
-            cost_d[m] = torch.tensor(max(R_d), dtype=torch.float32)
+            cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
 
         # if degeneration_flag is True:
         #     cost_d[degeneration_ind] = 10 * cost_d.max()

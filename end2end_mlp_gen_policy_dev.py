@@ -19,6 +19,7 @@ from sklearn.neighbors import kneighbors_graph
 
 from matplotlib import pyplot as plt
 
+from dataset_preparation import TSPDataset
 from tsp_solver import pointer_tsp_solve
 from rl_policy.MLP_model import ClusteringMLP
 from rl_policy.attention_model import AttentionModel
@@ -29,149 +30,11 @@ from tensorboardX import SummaryWriter
 from datetime import datetime, timedelta
 from attention2route_utils import torch_load_cpu, load_problem
 
-class TSPDataset(Dataset):
-    def __init__(self, filename=None, size=20, num_samples=1000000, offset=0, distribution=None):
-        super(TSPDataset, self).__init__()
-
-        self.data_set = []
-        if filename is not None:
-            assert os.path.splitext(filename)[1] == '.pkl'
-
-            with open(filename, 'rb') as f:
-                data = pickle.load(f)
-                self.data = [torch.FloatTensor(row) for row in (data[offset:offset + num_samples])]
-        else:
-            # Sample points randomly in [0, 1] square
-            self.data = [torch.FloatTensor(size, 2).uniform_(0, 1) for i in range(num_samples)]
-
-        self.size = len(self.data)
-
-    def __len__(self):
-        return self.size
-
-    def __getitem__(self, idx):
-        return self.data[idx]
-
-
-def knn_graph_norm_adj(x, num_knn=4, knn_mode='distance'):
-    x = x.numpy()
-    batch_size = x.shape[0]
-    n_node = x.shape[1]
-    batch_adj = np.zeros((batch_size, n_node, n_node))
-
-    for bat in range(batch_size):
-        adj = kneighbors_graph(x[bat, :, :], n_neighbors=num_knn, mode=knn_mode).todense()
-        # argument explanation: mode='distance', weighted adjacency matrix, mode=’connectivity’, binary adjacency matrix
-
-        adj = np.asarray(adj)
-        adj = np.maximum(adj, adj.T)
-        # adj = sp.csr_matrix(adj, dtype=np.float32)
-        batch_adj[bat, :, :] = normalized_adjacency(adj)
-
-    return torch.tensor(batch_adj, dtype=torch.float32)
-
-
-def clip_grad_norms(param_groups, max_norm=math.inf):
-    """
-    Clips the norms for all param groups to max_norm and returns gradient norms before clipping
-    :param param_groups:
-    :param max_norm:
-    :return: grad_norms, clipped_grad_norms: list with (clipped) gradient norms per group
-    """
-    grad_norms = [
-        torch.nn.utils.clip_grad_norm_(
-            group['params'],
-            max_norm if max_norm > 0 else math.inf,  # Inf so no clipping but still call to calc
-            norm_type=2
-        )
-        for group in param_groups
-    ]
-    grad_norms_clipped = [min(g_norm, max_norm) for g_norm in grad_norms] if max_norm > 0 else grad_norms
-    return grad_norms, grad_norms_clipped
-
-
-def plot_grad_flow(named_parameters):
-    """Plots the gradients flowing through different layers in the net during training.
-    Can be used for checking for possible gradient vanishing / exploding problems.
-
-    Usage: Plug this function in Trainer class after loss.backwards() as
-    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow"""
-    ave_grads = []
-    max_grads = []
-    layers = []
-    for n, p in named_parameters:
-        # i = 0
-        if p.requires_grad and ("bias" not in n):
-            # i += 1
-            # print(i, n)
-            layers.append(n)
-            ave_grads.append(p.grad.abs().mean())
-            max_grads.append(p.grad.abs().max())
-    plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
-    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
-    plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
-    plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
-    plt.xlim(left=0, right=len(ave_grads))
-    plt.ylim(bottom=-0.001, top=0.02)  # zoom in on the lower gradient regions
-    plt.xlabel("Layers")
-    plt.ylabel("average gradient")
-    plt.title("Gradient flow")
-    plt.grid(True)
-    plt.legend([Line2D([0], [0], color="c", lw=4),
-                Line2D([0], [0], color="b", lw=4),
-                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
-
-    plt.savefig(hyper_params['log_dir'] + '/grad_flow.pdf', bbox_inches='tight')
-
-
-def save_training_log(path, logs):
-    """
-    save logs into pickle file
-    :param path: string, directory to save the logfile
-    :param logs: dictionary, keys are names of the logs, elements are lists of floats
-    :return:
-    """
-    # make sure the given path exists
-    assert os.path.exists(path), 'Given path, "{}", for saving logfiles does not exist.'.format(path)
-    # create the logfile with the time stamp
-    pickle.dump(logs, open(os.path.join(path, 'log_at_{}.pkl'.format(time.asctime(time.localtime()))), "wb"))
-
-
-def plot_the_clustering_2d(cluster_num, a, X, showcase_mode='show', save_path='/home/masong/data/rl_clustering_pics'):
-    assert showcase_mode == ('show' or 'save'), 'param: showcase_mode should be either "show" or "save".'
-
-    colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
-
-    clusters_fig = plt.figure(dpi=300.0)
-    ax = clusters_fig.add_subplot(111)
-
-    for i in range(cluster_num):
-        indC = np.squeeze(np.argwhere(a == i))
-        X_C = X[indC]
-        if X_C.dim() == 1:
-            X_C = torch.unsqueeze(X_C, 0)
-        ax.scatter(X_C[:, 0], X_C[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
-
-    plt.savefig(hyper_params['log_dir'] + '/clustering_2d.pdf', bbox_inches='tight')
-    if showcase_mode == 'show':
-        clusters_fig.show()
-    elif showcase_mode == 'save':
-        clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
-                                          .format(time.asctime(time.localtime()))))
-
-
-# make function to compute action distribution
-def get_policy(obs, model):
-    logits = model(obs)
-    return Categorical(logits=logits)
-
-
-# make action selection function (outputs int actions, sampled from policy)
-# def get_action(obs, mlp):
-#     return get_policy(obs, mlp).sample()
-
 
 # Train an epoch
+from utilities import knn_graph_norm_adj, clip_grad_norms
+from visualisation import plot_grad_flow, plot_the_clustering_2d
+
 if __name__ == '__main__':
 
     # some arguments and hyperparameters
@@ -191,6 +54,7 @@ if __name__ == '__main__':
         'hidden_dim': 128,
         'problem': 'tsp',
         'n_components': 3,
+        'plot_interval': 200
     }
 
     eps = np.finfo(np.float32).eps.item()
@@ -201,7 +65,7 @@ if __name__ == '__main__':
     problem = load_problem(hyper_params['problem'])
 
     lamb = hyper_params['lamb']
-    gradient_check_flag = True
+    gradient_check_flag = False
     use_minCUT_pretrained = False
 
     # TRAIN ONE EPOCH
@@ -325,7 +189,7 @@ if __name__ == '__main__':
         # print([p for p in c_gmm_model.parameters()][1])
         # Perform backward pass and optimization step
         optimizer.zero_grad()
-        reinforce_loss.requires_grad = True
+
         reinforce_loss.backward()
 
         # Clip gradient norms and get (clipped) gradient norms for logging
@@ -345,27 +209,11 @@ if __name__ == '__main__':
         writer.add_scalar('training_rl_loss', logs['training_rl_loss'][-1], batch_id)
         # writer.add_scalar('training_rl_loss', logs['training_rl_loss'][-1], batch_id)
 
-        if batch_id % 200 == 0:
-            # print("loss: {}".format(reinforce_loss))
-            # print("grad_norm: {}".format(grad_norms[0][0].item()))
-            # print("total length: {}".format(logs['cost_d'][-1]))
+        if batch_id % hyper_params['plot_interval'] == 0:
 
             if gradient_check_flag:
-                plot_grad_flow(c_mlp_model.named_parameters())
+                plot_grad_flow(c_mlp_model.named_parameters(), hyper_params['log_dir'])
 
-            plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='show')
-
-            # Plot the loss, cost lines
-            plt.figure(figsize=(10, 5))
-            plt.subplot(111)
-            plt.plot(logs['cost_d'], label="total distance")
-            plt.xlabel('batch_id')
-            plt.ylabel('total_distance')
-            plt.legend()
-
-            plt.savefig(hyper_params['log_dir'] + '/cost_d.pdf', bbox_inches='tight')
-
-            plt.show()
-            torch.save(c_mlp_model.state_dict(), 'example_model.pt')
-
-    save_training_log('logfiles', logs)
+            writer.add_figure('clustering showcase',
+                              plot_the_clustering_2d(hyper_params['num_clusters'], a[0], X[0], showcase_mode='obj'),
+                              batch_id)
