@@ -143,7 +143,7 @@ if __name__ == '__main__':
                     pi.append(pi_i)
                     R_d.append(dist_i)
 
-            cost_d[m] = torch.tensor(sum(R_d), dtype=torch.float32)
+            cost_d[m] = torch.tensor(max(R_d), dtype=torch.float32)
 
         degeneration_ratio = degeneration_count/(batch.shape[0] * hyper_params['num_clusters'])
         print("----------cost_d:::", cost_d.mean().item(), "----------degeneration_ratio:::", degeneration_ratio)
@@ -180,8 +180,7 @@ if __name__ == '__main__':
 
         if batch_id % options['checkpoint_interval'] == 0:
             if options['save_model']:
-                model_dir = os.path.join(model_dir, 'batch{}.pt'.format(batch_id))
-                torch.save(model.state_dict(), model_dir)
+                torch.save(model.state_dict(), os.path.join(model_dir, 'batch{}.pt'.format(batch_id)))
 
             if options['gradient_check_flag']:
                 plot_grad_flow(model.named_parameters(), grad_flow_dir)
