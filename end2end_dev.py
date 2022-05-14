@@ -16,7 +16,7 @@ from rl_policy.mlp_gen_model import MlpGenPolicy
 
 from datetime import datetime, timedelta
 
-from dataset_preparation import TSPDataset
+from dataset_preparation import TSPDataset, BlobDataset
 from utilities import knn_graph_norm_adj, clip_grad_norms
 from visualisation import plot_grad_flow, plot_the_clustering_2d
 
@@ -42,12 +42,15 @@ if __name__ == '__main__':
 
     options = {
         'model_type': 'moe_mlp',
+        'data_type': 'blob',
         'log_dir': 'logs',
         'checkpoint_interval': 200,
         'gradient_check_flag': True,
         'save_model': True
     }
-    assert options['model_type'] in {'moe_mlp', 'mlp', 'attention'}, "{} does not exist".format(options['model_type'])
+    assert options['model_type'] in {'moe_mlp', 'mlp', 'attention'}, "model_type: {}, does not exist"\
+        .format(options['model_type'])
+    assert options['data_type'] in {'random', 'blob'}, "data_type: {, does not exist}".format(options['data_type'])
 
     eps = np.finfo(np.float32).eps.item()
     cur_time = datetime.now() + timedelta(hours=0)
@@ -64,7 +67,13 @@ if __name__ == '__main__':
 
     # TRAIN ONE EPOCH
     # Prepare and load the training data
-    dataset = TSPDataset(size=hyper_params['city_num'], num_samples=hyper_params['sample_num'])
+    if options['data_type'] == 'random':
+        dataset = TSPDataset(size=hyper_params['city_num'], num_samples=hyper_params['sample_num'])
+    elif options['data_type'] == 'blob':
+        dataset = BlobDataset(hyper_params)
+    else:
+        raise ValueError("Wrong 'data_type' value")
+
     train_iterator = DataLoader(dataset, batch_size=hyper_params['batch_size'], num_workers=1)
 
     # Instantiate the policy
@@ -83,7 +92,10 @@ if __name__ == '__main__':
 
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
         # begin to train a batch
-        X = batch    # torch.Size([32, 50, 2])
+        X = batch   # torch.Size([32, 50, 2])
+
+        if options['data_type'] == 'blob':
+            X = X['sample']
 
         # compute the normalised adjacency matrix of the sample city set ::: adj take up 1/10
         adj_norm = knn_graph_norm_adj(X, num_knn=4, knn_mode='distance')
@@ -108,10 +120,10 @@ if __name__ == '__main__':
         _, _, Rcc, Rco = dense_mincut_pool(X, adj_norm, cluster_policy_logits)
 
         # initialise the tensor to store the total distance
-        cost_d = torch.tensor(data=np.zeros(batch.shape[0]))
+        cost_d = torch.tensor(data=np.zeros(X.shape[0]))
 
         degeneration_count = 0
-        for m in range(batch.shape[0]):
+        for m in range(X.shape[0]):
             # For each sample in the batch
             X_c = []  # list of cities in each cluster
             pi = []  # list of the visit sequences for each cluster
@@ -145,7 +157,7 @@ if __name__ == '__main__':
 
             cost_d[m] = torch.tensor(max(R_d), dtype=torch.float32)
 
-        degeneration_ratio = degeneration_count/(batch.shape[0] * hyper_params['num_clusters'])
+        degeneration_ratio = degeneration_count/(X.shape[0] * hyper_params['num_clusters'])
         print("----------cost_d:::", cost_d.mean().item(), "----------degeneration_ratio:::", degeneration_ratio)
 
         writer.add_scalar('degeneration_ratio', degeneration_ratio, batch_id)
