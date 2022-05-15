@@ -50,7 +50,7 @@ if __name__ == '__main__':
     }
     assert options['model_type'] in {'moe_mlp', 'mlp', 'attention'}, "model_type: {}, does not exist"\
         .format(options['model_type'])
-    assert options['data_type'] in {'random', 'blob'}, "data_type: {, does not exist}".format(options['data_type'])
+    assert options['data_type'] in {'random', 'blob'}, "data_type: {}, does not exist".format(options['data_type'])
 
     eps = np.finfo(np.float32).eps.item()
     cur_time = datetime.now() + timedelta(hours=0)
