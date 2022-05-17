@@ -18,7 +18,10 @@ def prepare_blob_dataset(hparams) -> (np.ndarray, np.ndarray):
     labels = np.zeros((sample_num, city_num))
 
     for sample in range(sample_num):
-        samples[sample, :, :], labels[sample, :] = make_blobs(city_num, feature_dim)
+        samples[sample, :, :], labels[sample, :] = make_blobs(city_num,
+                                                              feature_dim,
+                                                              cluster_std=0.1,
+                                                              center_box=(0.0, 1.0))
 
     return samples, labels
 

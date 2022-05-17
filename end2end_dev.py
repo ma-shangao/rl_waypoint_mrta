@@ -38,12 +38,12 @@ if __name__ == '__main__':
         'embedding_dim': 128,
         'hidden_dim': 128,
         'n_components': 3,
-        'cost_d_op': 'max'
+        'cost_d_op': 'sum'
     }
 
     options = {
         'model_type': 'moe_mlp',
-        'data_type': 'random',
+        'data_type': 'blob',
         'log_dir': 'logs',
         'checkpoint_interval': 200,
         'gradient_check_flag': True,
