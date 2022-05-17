@@ -125,6 +125,8 @@ if __name__ == '__main__':
         # initialise the tensor to store the total distance
         cost_d_max = torch.tensor(data=np.zeros(X.shape[0]))
         cost_d_sum = torch.tensor(data=np.zeros(X.shape[0]))
+        cost_d_max_origin = torch.tensor(data=np.zeros(X.shape[0]))
+        cost_d_sum_origin = torch.tensor(data=np.zeros(X.shape[0]))
 
         degeneration_count = 0
         for m in range(X.shape[0]):
@@ -132,6 +134,7 @@ if __name__ == '__main__':
             X_c = []  # list of cities in each cluster
             pi = []  # list of the visit sequences for each cluster
             R_d = []  # list of the distances of each cluster
+            R_d_origin = [] # list of the distance of each cluster (discard the degeneration penalty)
             # len() of the above lists will be num_clusters
 
             # Flag to determine whether degeneration clustering (very few or no
@@ -150,6 +153,7 @@ if __name__ == '__main__':
                 if sum(ind_c.shape) == 0:
                     degeneration_flag = True
                     R_d.append(degeneration_penalty)
+                    R_d_origin.append(0)
                     degeneration_count += 1
                 else:
                     X_i = X[m, ind_c, :]
@@ -158,14 +162,19 @@ if __name__ == '__main__':
 
                     pi.append(pi_i)
                     R_d.append(dist_i)
+                    R_d_origin.append(dist_i)
 
             cost_d_max[m] = torch.tensor(max(R_d), dtype=torch.float32)
             cost_d_sum[m] = torch.tensor(sum(R_d), dtype=torch.float32)
+            cost_d_max_origin[m] = torch.tensor(max(R_d_origin), dtype=torch.float32)
+            cost_d_sum_origin[m] = torch.tensor(sum(R_d_origin), dtype=torch.float32)
 
         degeneration_ratio = degeneration_count/(X.shape[0] * hyper_params['num_clusters'])
         print("----------cost_d:::", cost_d_max.mean().item(), "----------degeneration_ratio:::", degeneration_ratio)
 
         writer.add_scalar('degeneration_ratio', degeneration_ratio, batch_id)
+        writer.add_scalar('cost_d_max_origin', cost_d_max_origin.mean().item(), batch_id)
+        writer.add_scalar('cost_d_sum_origin', cost_d_sum_origin.mean().item(), batch_id)
 
         cost_d_max_log = cost_d_max.mean().item()
         cost_d_sum_log = cost_d_sum.mean().item()
