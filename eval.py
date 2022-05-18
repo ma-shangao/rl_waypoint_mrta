@@ -75,7 +75,7 @@ def main(args, hparams, opts):
         optimizer = torch.optim.Adam(model.parameters(), lr=hparams['lr'])
     else:
         # load the model
-        model = model.load_state_dict(torch.load(args.eval_dir))
+        model.load_state_dict(torch.load(args.eval_dir))
 
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
         # begin to train a batch
