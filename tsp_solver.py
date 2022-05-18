@@ -15,7 +15,7 @@ def tsp_solve(points_coordinate):
         n_points, = routine.shape
         return sum([distance_matrix[routine[i % n_points], routine[(i + 1) % n_points]] for i in range(n_points)])
 
-    # %% do GA
+    # do GA
 
     ga_tsp = GA_TSP(func=cal_total_distance, n_dim=num_points, size_pop=50, max_iter=500, prob_mut=1)
     best_points, best_distance = ga_tsp.run()
