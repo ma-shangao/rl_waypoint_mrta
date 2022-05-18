@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from torch_geometric.nn import dense_mincut_pool
 
+from arg_parser import arg_parse
 from tsp_solver import pointer_tsp_solve
 
 from rl_policy.moe_mlp_gen_model import MoeGenPolicy
@@ -24,36 +25,38 @@ from visualisation import plot_grad_flow, plot_the_clustering_2d
 # Train an epoch
 if __name__ == '__main__':
 
+    args = arg_parse()
+
     # some hyperparameters
     hyper_params = {
-        'num_clusters': 3,
-        'feature_dim': 2,
-        'city_num': 50,
-        'sample_num': 1000000,
-        'batch_size': 32,
-        'lamb': 0.5,
-        'lamb_decay': 1,
-        'max_grad_norm': 10.0,
-        'lr': 0.01,
-        'embedding_dim': 128,
-        'hidden_dim': 128,
-        'n_components': 3,
-        'cost_d_op': 'sum'
+        'num_clusters': args.clusters_num,
+        'feature_dim': args.feature_dim,
+        'city_num': args.city_num,
+        'sample_num': args.sample_num,
+        'batch_size': args.batch_size,
+        'lamb': args.lamb,
+        'lamb_decay': args.lamb_decay,
+        'max_grad_norm': args.max_grad_norm,
+        'lr': args.lr,
+        'embedding_dim': args.embedding_dim,
+        'hidden_dim': args.hidden_dim,
+        'n_components': args.n_component,
+        'cost_d_op': args.cost_d_op
     }
 
     options = {
-        'model_type': 'moe_mlp',
-        'data_type': 'blob',
-        'log_dir': 'logs',
-        'checkpoint_interval': 200,
-        'gradient_check_flag': True,
-        'save_model': True
+        'model_type': args.model_type,
+        'data_type': args.data_type,
+        'log_dir': args.log_dir,
+        'checkpoint_interval': args.checkpoint_interval,
+        'gradient_check_flag': args.gradient_check_flag,
+        'save_model': args.save_model
     }
-    assert options['model_type'] in {'moe_mlp', 'mlp', 'attention'}, "model_type: {}, does not exist"\
-        .format(options['model_type'])
-    assert options['data_type'] in {'random', 'blob'}, "data_type: {}, does not exist".format(options['data_type'])
-    assert hyper_params['cost_d_op'] in {'sum', 'max'}, "cost_d_op: {}, does not exist"\
-        .format(hyper_params['cost_d_op'])
+    # assert options['model_type'] in {'moe_mlp', 'mlp', 'attention'}, "model_type: {}, does not exist"\
+    #     .format(options['model_type'])
+    # assert options['data_type'] in {'random', 'blob'}, "data_type: {}, does not exist".format(options['data_type'])
+    # assert hyper_params['cost_d_op'] in {'sum', 'max'}, "cost_d_op: {}, does not exist"\
+    #     .format(hyper_params['cost_d_op'])
 
     eps = np.finfo(np.float32).eps.item()
     cur_time = datetime.now() + timedelta(hours=0)
@@ -134,7 +137,7 @@ if __name__ == '__main__':
             X_c = []  # list of cities in each cluster
             pi = []  # list of the visit sequences for each cluster
             R_d = []  # list of the distances of each cluster
-            R_d_origin = [] # list of the distance of each cluster (discard the degeneration penalty)
+            R_d_origin = []  # list of the distance of each cluster (discard the degeneration penalty)
             # len() of the above lists will be num_clusters
 
             # Flag to determine whether degeneration clustering (very few or no

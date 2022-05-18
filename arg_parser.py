@@ -8,7 +8,7 @@ def arg_parse():
     options = parser.add_argument_group('options')
 
     hparams.add_argument('-N', '--city_num', type=int, default=50, help="Number of task points in each sample")
-    hparams.add_argument('-k', '--num_clusters', type=int, default=3, help="Number of clusters")
+    hparams.add_argument('-k', '--clusters_num', type=int, default=3, help="Number of clusters")
     hparams.add_argument('-F', '--feature_dim', type=int, default=2, help="Dimension of task point feature")
     hparams.add_argument('--sample_num', type=int, default=1000000, help="Sample number within the generated dataset")
     hparams.add_argument('-M', '--batch_size', type=int, default=32, help="Batch size to divide the dataset")
@@ -16,7 +16,7 @@ def arg_parse():
                          help="Lambda for balancing the distance cost and unsupervised losses")
     hparams.add_argument('--lamb_decay', type=float, default=1.0, help="Decay rate of lambda after each iteration")
     hparams.add_argument('--max_grad_norm', type=float, default=10.0, help="Threshold for gradient clipping")
-    hparams.add_argument('--lr', '--learning_rate', type=float, default=0.01, help="Learning rate for the optimiser")
+    hparams.add_argument('--lr', type=float, default=0.01, help="Learning rate for the optimiser")
     hparams.add_argument('--embedding_dim', type=int, default=128,
                          help="Dimension of the embedder of the attention model")
     hparams.add_argument('--hidden_dim', type=int, default=128, help="Dimension of the hidden layer in MLP or MoE MLP")
