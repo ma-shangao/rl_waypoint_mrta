@@ -215,10 +215,7 @@ def main(args, hparams, opts):
 
         if args.eval is True:
             if batch_id % opts['checkpoint_interval'] == 0:
-                writer.add_figure('clustering showcase',
-                                  plot_the_clustering_2d(hparams['num_clusters'], a[0], x[0], showcase_mode='obj'),
-                                  batch_id)
-
+                plot_the_clustering_2d(hparams['num_clusters'], a[0], x[0], showcase_mode='show')
 
 # Train an epoch
 if __name__ == '__main__':
