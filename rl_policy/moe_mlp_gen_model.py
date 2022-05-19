@@ -3,46 +3,48 @@ import torch.nn.functional as F
 import torch
 from torch.distributions.categorical import Categorical
 
-from visualisation import plot_grad_flow
-
 
 class MoeMlpPolicy(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, n_component, input_dim, hidden_dim, out_dim):
         super().__init__()
+        self.n_component = n_component
         self.input_fc = nn.Linear(input_dim, hidden_dim)
         self.hidden_fc = nn.Linear(hidden_dim, hidden_dim)
-        self.output_fc_1 = nn.Linear(hidden_dim, output_dim)
-        self.output_fc_2 = nn.Linear(hidden_dim, output_dim)
-        self.output_fc_3 = nn.Linear(hidden_dim, output_dim)
+        self.net = nn.ModuleList([])
+        for i in range(n_component):
+            self.net.append(nn.Linear(hidden_dim, out_dim))
 
     def forward(self, x):
         # x = [batch size, height, width]
-
         h_1 = F.relu(self.input_fc(x))
         h_2 = F.relu(self.hidden_fc(h_1))
 
-        a1 = self.output_fc_1(h_2)
-        a2 = self.output_fc_2(h_2)
-        a3 = self.output_fc_3(h_2)
+        output_a = []
+        for i in range(self.n_component):
+            output_a.append(self.net[i](h_2))
 
-        return a1, a2, a3
+        return output_a
 
 
 class MoeGenPolicy(nn.Module):
-    def __init__(self, n_component, input_dim, hidden_dim):
+    def __init__(self, n_component, input_dim, hidden_dim, cluster_num):
         super().__init__()
         self.n_component = n_component
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
+        self.cluster_num = cluster_num
         self.pi = torch.nn.Parameter(torch.Tensor(1, self.n_component, 1), requires_grad=True)
         torch.nn.init.uniform_(self.pi, 1. / self.n_component, 1. / self.n_component + 0.01)
-        self.actor_mlp = MoeMlpPolicy(input_dim, hidden_dim, n_component)
+        self.actor_mlp = MoeMlpPolicy(n_component, input_dim, hidden_dim, cluster_num)
 
     def forward(self, x):
 
-        a1, a2, a3 = self.actor_mlp(x)
+        output_a = self.actor_mlp(x)
 
-        logits_ = self.pi[0, 0, 0] * a1 + self.pi[0, 1, 0] * a2 + self.pi[0, 2, 0] * a3
+        logits_ = torch.zeros_like(output_a[0])
+        for i in range(self.n_component):
+            logits_ += self.pi[0, i, 0] * output_a[i]
+
         log_pi = torch.nn.LogSoftmax(dim=-1)(logits_)
         logits = log_pi.exp()
         action_distribution = Categorical(logits)
@@ -52,9 +54,8 @@ class MoeGenPolicy(nn.Module):
 
 
 if __name__ == "__main__":
-    n_comp, in_dim, hid_dim = 3, 2, 128
-    gmm = MoeGenPolicy(n_comp, in_dim, hid_dim)
+    n_comp, in_dim, hid_dim, o_dim = 3, 2, 128, 3
+    gmm = MoeGenPolicy(n_comp, in_dim, hid_dim, o_dim)
+
     data_x = torch.rand(32, 50, 2)
     y = gmm(data_x)
-
-    plot_grad_flow(gmm.named_parameters(), logdir='.')

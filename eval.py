@@ -69,6 +69,38 @@ def model_prepare(args: argparse.Namespace) -> torch.nn.Module:
     return model
 
 
+def cluster_tsp_solver(k: int, m: int, a, x, degeneration_penalty: float):
+
+    x_c = []  # list of cities in each cluster
+    pi = []  # list of the visit sequences for each cluster
+    c_d = []  # list of the distances of each cluster
+    c_d_origin = []  # list of the distance of each cluster (discard the degeneration penalty)
+    # len() of the above lists will be num_clusters
+
+    for cluster in range(k):
+        # For each cluster within this sample
+
+        # Get the list of indices of cities assigned to this cluster.
+        ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
+
+        # This is the condition to detect disappearing cluster assignment
+        if sum(ind_c.shape) == 0:
+            degeneration_flag = True
+            c_d.append(degeneration_penalty)
+            c_d_origin.append(0)
+            # degeneration_count += 1
+        else:
+            x_i = x[m, ind_c, :]
+            x_c.append(x_i)
+            pi_i, dist_i = pointer_tsp_solve(x_i.numpy())
+
+            pi.append(pi_i)
+            c_d.append(dist_i)
+            c_d_origin.append(dist_i)
+
+    return pi, c_d, c_d_origin, degeneration_flag
+
+
 def main(args, hparams, opts):
     eps = np.finfo(np.float32).eps.item()
     cur_time = datetime.now() + timedelta(hours=0)
