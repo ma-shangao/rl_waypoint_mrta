@@ -18,7 +18,8 @@ def arg_parse():
     hparams.add_argument('--embedding_dim', type=int, default=128,
                          help="Dimension of the embedder of the attention model")
     hparams.add_argument('--hidden_dim', type=int, default=128, help="Dimension of the hidden layer in MLP or MoE MLP")
-    hparams.add_argument('--n_component', type=int, default=3, help="Number of experts for MoE")
+    hparams.add_argument('--out_dim', type=int, default=3, help="Dimension of the output layer in MLP or MoE MLP")
+    hparams.add_argument('--n_component', type=int, default=4, help="Number of experts for MoE")
     hparams.add_argument('--cost_d_op', choices=['sum', 'max'], type=str, default='sum',
                          help="Number of experts for MoE")
     hparams.add_argument('--penalty_score', type=float, default=10.0, help="Penalty score for degeneration")

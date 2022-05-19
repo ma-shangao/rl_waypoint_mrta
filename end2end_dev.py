@@ -40,6 +40,7 @@ if __name__ == '__main__':
         'lr': args.lr,
         'embedding_dim': args.embedding_dim,
         'hidden_dim': args.hidden_dim,
+        'out_dim': args.out_dim,
         'n_components': args.n_component,
         'cost_d_op': args.cost_d_op
     }
@@ -84,7 +85,7 @@ if __name__ == '__main__':
 
     # Instantiate the policy
     if options['model_type'] == 'moe_mlp':
-        model = MoeGenPolicy(hyper_params['n_components'], hyper_params['feature_dim'], hyper_params['hidden_dim'])
+        model = MoeGenPolicy(hyper_params['n_components'], hyper_params['feature_dim'], hyper_params['hidden_dim'], hyper_params['out_dim'])
     elif options['model_type'] == 'mlp':
         model = MlpGenPolicy(hyper_params['n_components'], hyper_params['feature_dim'], hyper_params['hidden_dim'])
     elif options['model_type'] == 'attention':
@@ -198,6 +199,9 @@ if __name__ == '__main__':
 
         reinforce_loss = (cost * ll.sum(-1)).mean()
 
+        ## print the parameter before updating
+        # for n, p in model.named_parameters():
+        #     print(n, p)
         # Perform backward pass and optimization step
         optimizer.zero_grad()
         # reinforce_loss.requires_grad = True
@@ -208,6 +212,10 @@ if __name__ == '__main__':
 
         optimizer.step()
         lamb = lamb * hyper_params['lamb_decay']
+
+        ## print the parameter after updating
+        # for n, p in model.named_parameters():
+        #     print(n, p)
 
         cost_log = cost.mean().item()
         writer.add_scalar('lamb', lamb, batch_id)
