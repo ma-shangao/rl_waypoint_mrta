@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+import argparse
 
 import numpy as np
 import os
@@ -32,6 +33,42 @@ def prepare_training_log_dir(log_dir: str) -> tuple[str, str]:
     return model_dir, grad_flow_dir
 
 
+def prepare_dataset(args: argparse.Namespace) -> torch.utils.data.Dataset:
+    # Prepare and load the training data
+    if args.data_type == 'random':
+        dataset = TSPDataset(size=args.city_num, num_samples=args.sample_num)
+    elif args.data_type == 'blob':
+        dataset = BlobDataset(args.city_num,
+                              args.feature_dim,
+                              args.sample_num)
+    else:
+        raise ValueError("Wrong 'data_type' value")
+    return dataset
+
+
+def model_prepare(args: argparse.Namespace) -> torch.nn.Module:
+    # Instantiate the policy
+    if args.model_type == 'moe_mlp':
+        model = MoeGenPolicy(args.n_components, args.feature_dim, args.hidden_dim)
+    elif args.model_type == 'mlp':
+        model = MlpGenPolicy(args.clusters_num, args.feature_dim, args.hidden_dim)
+    elif args.model_type == 'attention':
+        # WIP
+        model = None
+    else:
+        raise ValueError("Wrong 'model_type' value")
+
+    if args.train is True:
+        if args.pretrain_dir is not None:
+            model.load_state_dict(torch.load(args.pretrain_dir))
+        model.train()
+    else:
+        # load the model
+        model.load_state_dict(torch.load(args.eval_dir))
+
+    return model
+
+
 def main(args, hparams, opts):
     eps = np.finfo(np.float32).eps.item()
     cur_time = datetime.now() + timedelta(hours=0)
@@ -49,33 +86,13 @@ def main(args, hparams, opts):
 
     # TRAIN ONE EPOCH
 
-    # Prepare and load the training data
-    if opts['data_type'] == 'random':
-        dataset = TSPDataset(size=hparams['city_num'], num_samples=hparams['sample_num'])
-    elif opts['data_type'] == 'blob':
-        dataset = BlobDataset(hparams)
-    else:
-        raise ValueError("Wrong 'data_type' value")
-
+    dataset = prepare_dataset(args)
     train_iterator = DataLoader(dataset, batch_size=hparams['batch_size'], num_workers=1)
 
-    # Instantiate the policy
-    if opts['model_type'] == 'moe_mlp':
-        model = MoeGenPolicy(hparams['n_components'], hparams['feature_dim'], hparams['hidden_dim'])
-    elif opts['model_type'] == 'mlp':
-        model = MlpGenPolicy(hparams['n_components'], hparams['feature_dim'], hparams['hidden_dim'])
-    elif opts['model_type'] == 'attention':
-        # WIP
-        model = None
-    else:
-        raise ValueError("Wrong 'model_type' value")
+    model = model_prepare(args)
 
     if args.train is True:
-        model.train()
         optimizer = torch.optim.Adam(model.parameters(), lr=hparams['lr'])
-    else:
-        # load the model
-        model.load_state_dict(torch.load(args.eval_dir))
 
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
         # begin to train a batch
@@ -222,7 +239,7 @@ if __name__ == '__main__':
 
     arguments = arg_parse()
 
-    # some hyperparameters
+    # some hyper-parameters
     hyper_params = {
         'num_clusters': arguments.clusters_num,
         'feature_dim': arguments.feature_dim,

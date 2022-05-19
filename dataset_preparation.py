@@ -9,10 +9,10 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataset import T_co
 
 
-def prepare_blob_dataset(hparams) -> (np.ndarray, np.ndarray):
-    city_num = hparams['city_num']
-    feature_dim = hparams['feature_dim']
-    sample_num = hparams['sample_num']
+def prepare_blob_dataset(city_num: int = 50,
+                         feature_dim: int = 2,
+                         sample_num: int = 100000
+                         ) -> (np.ndarray, np.ndarray):
 
     samples = np.zeros((sample_num, city_num, feature_dim))
     labels = np.zeros((sample_num, city_num))
@@ -27,9 +27,11 @@ def prepare_blob_dataset(hparams) -> (np.ndarray, np.ndarray):
 
 
 class BlobDataset(Dataset):
-    def __init__(self, hparams):
+    def __init__(self, city_num: int = 50, feature_dim: int = 2, sample_num: int = 100000):
         super(BlobDataset, self).__init__()
-        self.hparams = hparams
+        self.city_num = city_num
+        self.feature_dim = feature_dim
+        self.sample_num = sample_num
 
         self.samples, self.labels = self._generate_dataset()
 
@@ -45,7 +47,9 @@ class BlobDataset(Dataset):
         return len(self.samples)
 
     def _generate_dataset(self):
-        samples, labels = prepare_blob_dataset(self.hparams)
+        samples, labels = prepare_blob_dataset(self.city_num,
+                                               self.feature_dim,
+                                               self.sample_num)
         return torch.from_numpy(samples).float(), torch.from_numpy(labels)
 
 

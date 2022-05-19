@@ -34,6 +34,8 @@ def arg_parse():
     options.add_argument('--gradient_check_flag', type=bool, default=False, help="Whether to check the gradient flow")
     options.add_argument('--save_model', type=bool, default=True, help="Whether to save the trained model")
 
+    options.add_argument('--pretrain_dir', type=str, default=None,
+                         help="Where to load the pretrained model for training")
     options.add_argument('--eval_dir', type=str, default=None, help="Where to load the model for evaluation")
 
     train_eval = parser.add_mutually_exclusive_group(required=True)
@@ -45,4 +47,4 @@ def arg_parse():
 
 
 if __name__ == '__main__':
-    arguments = arg_parse()
+    pass

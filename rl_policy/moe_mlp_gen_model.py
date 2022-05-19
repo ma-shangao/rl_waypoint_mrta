@@ -37,19 +37,10 @@ class MoeGenPolicy(nn.Module):
         self.pi = torch.nn.Parameter(torch.Tensor(1, self.n_component, 1), requires_grad=True)
         torch.nn.init.uniform_(self.pi, 1. / self.n_component, 1. / self.n_component + 0.01)
         self.actor_mlp = MoeMlpPolicy(input_dim, hidden_dim, n_component)
-        self.action_shape = 3
 
     def forward(self, x):
 
         a1, a2, a3 = self.actor_mlp(x)
-
-        # mu.clamp_(float(0.0), float(float(self.action_shape - 1)))
-        # # Clamp each dim of mu based on the (low,high) limits of that action dim
-        # sigma = torch.nn.Softplus()(sigma).squeeze() + 1e-7  # Let sigma be (smoothly) +ve
-        # sigma_stack = torch.stack([torch.stack([torch.stack([torch.eye(self.action_shape)
-        #                                                      * k for k in i]) for i in j]) for j in sigma])
-        # dis_lst = []
-        # sample_pi_all = torch.zeros_like(mu)
 
         logits_ = self.pi[0, 0, 0] * a1 + self.pi[0, 1, 0] * a2 + self.pi[0, 2, 0] * a3
         log_pi = torch.nn.LogSoftmax(dim=-1)(logits_)
