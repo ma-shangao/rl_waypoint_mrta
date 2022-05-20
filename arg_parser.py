@@ -40,7 +40,7 @@ def arg_parse():
 
     train_eval = parser.add_mutually_exclusive_group(required=True)
     train_eval.add_argument('--train', action='store_true', help="Set the system into training mode")
-    train_eval.add_argument('--eval', action='store_true', help="Set the system into evaluation mode" )
+    train_eval.add_argument('--eval', action='store_true', help="Set the system into evaluation mode")
 
     args = parser.parse_args()
     return args

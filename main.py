@@ -49,7 +49,7 @@ def prepare_dataset(args: argparse.Namespace) -> torch.utils.data.Dataset:
 def model_prepare(args: argparse.Namespace) -> torch.nn.Module:
     # Instantiate the policy
     if args.model_type == 'moe_mlp':
-        model = MoeGenPolicy(args.n_components, args.feature_dim, args.hidden_dim)
+        model = MoeGenPolicy(args.n_component, args.feature_dim, args.hidden_dim, args.clusters_num)
     elif args.model_type == 'mlp':
         model = MlpGenPolicy(args.clusters_num, args.feature_dim, args.hidden_dim)
     elif args.model_type == 'attention':
@@ -70,12 +70,13 @@ def model_prepare(args: argparse.Namespace) -> torch.nn.Module:
 
 
 def cluster_tsp_solver(k: int, m: int, a, x, degeneration_penalty: float):
-
     x_c = []  # list of cities in each cluster
     pi = []  # list of the visit sequences for each cluster
     c_d = []  # list of the distances of each cluster
     c_d_origin = []  # list of the distance of each cluster (discard the degeneration penalty)
     # len() of the above lists will be num_clusters
+
+    degeneration_flag = None
 
     for cluster in range(k):
         # For each cluster within this sample
@@ -112,10 +113,6 @@ def main(args, hparams, opts):
 
     writer = SummaryWriter(log_dir)
 
-    if args.train is True:
-        model_dir, grad_flow_dir = prepare_training_log_dir(log_dir)
-        lamb = hparams['lamb']
-
     # TRAIN ONE EPOCH
 
     dataset = prepare_dataset(args)
@@ -124,11 +121,13 @@ def main(args, hparams, opts):
     model = model_prepare(args)
 
     if args.train is True:
+        model_dir, grad_flow_dir = prepare_training_log_dir(log_dir)
+        lamb = hparams['lamb']
         optimizer = torch.optim.Adam(model.parameters(), lr=hparams['lr'])
 
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
         # begin to train a batch
-        x = batch   # torch.Size([32, 50, 2])
+        x = batch  # torch.Size([32, 50, 2])
 
         if opts['data_type'] == 'blob':
             x = x['sample']
@@ -145,13 +144,8 @@ def main(args, hparams, opts):
         if args.train is True:
             ll = log_p_sum.reshape(bs, sequence_len)
 
-            # sorted for the right group order
-            # sorted_selected_sequences, sorted_indices = torch.sort(selected_sequences, dim=1)
-            # a = torch.gather(node_groups, 1, sorted_indices)[:,:,0]  ## 32.50
-            # ll = log_p_sum[:,:,0] # 32.50
-
             # Rcc and Rco are mean losses among the batch
-            _, _, Rcc, Rco = dense_mincut_pool(x, adj_norm, cluster_policy_logits)
+            _, _, r_cc, r_co = dense_mincut_pool(x, adj_norm, cluster_policy_logits)
 
         # initialise the tensor to store the total distance
         cost_d_max = torch.tensor(data=np.zeros(x.shape[0]))
@@ -160,52 +154,29 @@ def main(args, hparams, opts):
         cost_d_sum_origin = torch.tensor(data=np.zeros(x.shape[0]))
 
         degeneration_count = 0
+
         for m in range(x.shape[0]):
             # For each sample in the batch
             # Calculating the cost_d
 
-            x_c = []  # list of cities in each cluster
-            pi = []  # list of the visit sequences for each cluster
-            c_d = []  # list of the distances of each cluster
-            c_d_origin = []  # list of the distance of each cluster (discard the degeneration penalty)
-            # len() of the above lists will be num_clusters
-
-            # Flag to determine whether degeneration clustering (very few or no
-            # assignments for clusters) happened as well which cluster happened.
-            # degeneration_flag = None
-            # degeneration_ind = []
-
             # This is currently a hyperparameter needs manual tuning
             degeneration_penalty = hparams['penalty_score']
 
-            for cluster in range(hparams['num_clusters']):
-                # For each cluster within this sample
+            pi, c_d, c_d_origin, degeneration_flag = cluster_tsp_solver(k=hparams['num_clusters'],
+                                                                        m=m,
+                                                                        a=a,
+                                                                        x=x,
+                                                                        degeneration_penalty=degeneration_penalty)
 
-                # Get the list of indices of cities assigned to this cluster.
-                ind_c = torch.nonzero(a[m, :] == cluster, as_tuple=False).squeeze()
-
-                # This is the condition to detect disappearing cluster assignment
-                if sum(ind_c.shape) == 0:
-                    # degeneration_flag = True
-                    c_d.append(degeneration_penalty)
-                    c_d_origin.append(0)
-                    degeneration_count += 1
-                else:
-                    x_i = x[m, ind_c, :]
-                    x_c.append(x_i)
-                    pi_i, dist_i = pointer_tsp_solve(x_i.numpy())
-
-                    pi.append(pi_i)
-                    c_d.append(dist_i)
-                    c_d_origin.append(dist_i)
+            if degeneration_flag is True:
+                degeneration_count += 1
 
             cost_d_max[m] = torch.tensor(max(c_d), dtype=torch.float32)
             cost_d_sum[m] = torch.tensor(sum(c_d), dtype=torch.float32)
             cost_d_max_origin[m] = torch.tensor(max(c_d_origin), dtype=torch.float32)
             cost_d_sum_origin[m] = torch.tensor(sum(c_d_origin), dtype=torch.float32)
 
-        degeneration_ratio = degeneration_count/(x.shape[0] * hparams['num_clusters'])
-        print("----------cost_d:::", cost_d_max.mean().item(), "----------degeneration_ratio:::", degeneration_ratio)
+        degeneration_ratio = degeneration_count / x.shape[0]
 
         writer.add_scalar('degeneration_ratio', degeneration_ratio, batch_id)
         writer.add_scalar('cost_d_max_origin', cost_d_max_origin.mean().item(), batch_id)
@@ -214,17 +185,20 @@ def main(args, hparams, opts):
         cost_d_max_log = cost_d_max.mean().item()
         cost_d_sum_log = cost_d_sum.mean().item()
 
+        if hparams['cost_d_op'] == 'max':
+            cost_d = cost_d_max
+        elif hparams['cost_d_op'] == 'sum':
+            cost_d = cost_d_sum
+        else:
+            raise ValueError("Wrong 'cost_d_op' value")
+
+        print("----------cost_d:::", cost_d.mean().item(), "----------degeneration_ratio:::",
+              degeneration_ratio)
+
         if args.train is True:
 
-            if hparams['cost_d_op'] == 'max':
-                cost_d = cost_d_max
-            elif hparams['cost_d_op'] == 'sum':
-                cost_d = cost_d_sum
-            else:
-                raise ValueError("Wrong 'cost_d_op' value")
-
-            cost_d = (cost_d - cost_d.mean()) / (cost_d.std() + eps)
-            cost = (1 - lamb) * cost_d + lamb * (Rcc + Rco)
+            cost_d = (cost_d - cost_d.mean()) / (cost_d.std(dim=0) + eps)
+            cost = (1 - lamb) * cost_d + lamb * (r_cc + r_co)
 
             # base_line = cost.mean()
             # add baseline later
@@ -266,9 +240,9 @@ def main(args, hparams, opts):
             if batch_id % opts['checkpoint_interval'] == 0:
                 plot_the_clustering_2d(hparams['num_clusters'], a[0], x[0], showcase_mode='show')
 
+
 # Train an epoch
 if __name__ == '__main__':
-
     arguments = arg_parse()
 
     # some hyper-parameters

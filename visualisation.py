@@ -7,6 +7,41 @@ from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 
 
+def plot_the_clustering_2d_with_cycle(cluster_num,
+                                      a, x,
+                                      pi: list[list[np.ndarray]],
+                                      showcase_mode='show', save_path='./rl_clustering_cy_pics'):
+    """
+    Plot the clustering solution, with three different modes 'obj', 'show' or 'save', among which 'obj' can be used
+    with TensorBoard.
+    """
+    assert showcase_mode in ['show', 'save', 'obj'], 'param: showcase_mode should be among "obj", "show" or "save".'
+    assert cluster_num <= 7, "colour list not enough, provided 7 colours but have {} clusters".format(cluster_num)
+    colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
+
+    clusters_fig = plt.figure(dpi=300.0)
+    ax = clusters_fig.add_subplot(111)
+
+    for i in range(cluster_num):
+        ind_c = np.squeeze(np.argwhere(a == i))
+        x_c = x[ind_c]
+        if x_c.dim() == 1:
+            x_c = torch.unsqueeze(x_c, 0)
+        ax.scatter(x_c[:, 0], x_c[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
+
+        pi_c = pi[i]
+        pi_c.append(pi[i][0])
+        ax.plot(x_c[pi_c, 0], x_c[pi_c, 1], c='{}'.format(colour_list[i]), linestyle='dashed')
+
+    if showcase_mode == 'show':
+        clusters_fig.show()
+    elif showcase_mode == 'save':
+        clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
+                                          .format(time.asctime(time.localtime()))))
+    elif showcase_mode == 'obj':
+        return clusters_fig
+
+
 def plot_the_clustering_2d(cluster_num, a, x, showcase_mode='show', save_path='./rl_clustering_pics'):
     """
     Plot the clustering solution, with three different modes 'obj', 'show' or 'save', among which 'obj' can be used
@@ -69,3 +104,7 @@ def plot_grad_flow(named_parameters, logdir: str):
 
     save_dir = os.path.join(logdir, 'grad_flow.pdf')
     plt.savefig(save_dir, bbox_inches='tight')
+
+
+if __name__ == '__main__':
+    pass
