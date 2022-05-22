@@ -6,6 +6,24 @@ import torch
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 
+tfl_tube_colour_list = ['#994417', '#FF0D00', '#001DF2', '#09BA00', '#FA80D4', '#65878D', '#730088', '#000000',
+                        '#FFD600', '#00CFFF', '#6EFF99']
+
+
+def plot_task_points(x, showcase_mode='show', save_path=None):
+    clusters_fig = plt.figure(figsize=[5.0, 5.0], dpi=300.0)
+    ax = clusters_fig.add_subplot(111)
+    ax.scatter(x[:, 0], x[:, 1])
+
+    if showcase_mode == 'show':
+        clusters_fig.show()
+    elif showcase_mode == 'save':
+        clusters_fig.savefig(os.path.join(save_path, 'task_showcase{}.eps'
+                                          .format(time.asctime(time.localtime()))),
+                             format='eps')
+    elif showcase_mode == 'obj':
+        return clusters_fig
+
 
 def plot_the_clustering_2d_with_cycle(cluster_num,
                                       a, x,
@@ -17,9 +35,9 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
     """
     assert showcase_mode in ['show', 'save', 'obj'], 'param: showcase_mode should be among "obj", "show" or "save".'
     assert cluster_num <= 7, "colour list not enough, provided 7 colours but have {} clusters".format(cluster_num)
-    colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
+    colour_list = tfl_tube_colour_list
 
-    clusters_fig = plt.figure(dpi=300.0)
+    clusters_fig = plt.figure(figsize=[5.0, 5.0], dpi=300.0)
     ax = clusters_fig.add_subplot(111)
 
     for i in range(cluster_num):
@@ -36,8 +54,9 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
     if showcase_mode == 'show':
         clusters_fig.show()
     elif showcase_mode == 'save':
-        clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
-                                          .format(time.asctime(time.localtime()))))
+        clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_cyc_{}.eps'
+                                          .format(time.asctime(time.localtime()))),
+                             format='eps')
     elif showcase_mode == 'obj':
         return clusters_fig
 
@@ -49,7 +68,7 @@ def plot_the_clustering_2d(cluster_num, a, x, showcase_mode='show', save_path='.
     """
     assert showcase_mode in ['show', 'save', 'obj'], 'param: showcase_mode should be among "obj", "show" or "save".'
     assert cluster_num <= 7, "colour list not enough, provided 7 colours but have {} clusters".format(cluster_num)
-    colour_list = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
+    colour_list = tfl_tube_colour_list
 
     clusters_fig = plt.figure(dpi=300.0)
     ax = clusters_fig.add_subplot(111)
