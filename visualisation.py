@@ -26,8 +26,8 @@ def plot_task_points(x, showcase_mode='show', save_path=None):
 
 
 def plot_the_clustering_2d_with_cycle(cluster_num,
-                                      a, x,
-                                      pi: list[list[np.ndarray]],
+                                      a, x, draw_cycle: bool=True,
+                                      pi: list[list[np.ndarray]]=None,
                                       showcase_mode='show', save_path='./rl_clustering_cy_pics'):
     """
     Plot the clustering solution, with three different modes 'obj', 'show' or 'save', among which 'obj' can be used
@@ -47,9 +47,10 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
             x_c = torch.unsqueeze(x_c, 0)
         ax.scatter(x_c[:, 0], x_c[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
 
-        pi_c = pi[i]
-        pi_c.append(pi[i][0])
-        ax.plot(x_c[pi_c, 0], x_c[pi_c, 1], c='{}'.format(colour_list[i]), linestyle='dashed')
+        if draw_cycle is True:
+            pi_c = pi[i]
+            pi_c.append(pi[i][0])
+            ax.plot(x_c[pi_c, 0], x_c[pi_c, 1], c='{}'.format(colour_list[i]), linestyle='dashed')
 
     if showcase_mode == 'show':
         clusters_fig.show()
