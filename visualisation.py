@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.image import AxesImage
 
 tfl_tube_colour_list = ['#994417', '#FF0D00', '#001DF2', '#09BA00', '#FA80D4', '#65878D', '#730088', '#000000',
                         '#FFD600', '#00CFFF', '#6EFF99']
@@ -26,8 +27,9 @@ def plot_task_points(x, showcase_mode='show', save_path=None):
 
 
 def plot_the_clustering_2d_with_cycle(cluster_num,
-                                      a, x, draw_cycle: bool=True,
-                                      pi: list[list[np.ndarray]]=None,
+                                      a, x,
+                                      pi: list[list[np.ndarray]] = None,
+                                      background: AxesImage = None,
                                       showcase_mode='show', save_path='./rl_clustering_cy_pics'):
     """
     Plot the clustering solution, with three different modes 'obj', 'show' or 'save', among which 'obj' can be used
@@ -40,6 +42,9 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
     clusters_fig = plt.figure(figsize=[5.0, 5.0], dpi=300.0)
     ax = clusters_fig.add_subplot(111)
 
+    if background is not None:
+        ax.imshow(background)
+
     for i in range(cluster_num):
         ind_c = np.squeeze(np.argwhere(a == i))
         x_c = x[ind_c]
@@ -47,7 +52,7 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
             x_c = torch.unsqueeze(x_c, 0)
         ax.scatter(x_c[:, 0], x_c[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
 
-        if draw_cycle is True:
+        if pi is not None:
             pi_c = pi[i]
             pi_c.append(pi[i][0])
             ax.plot(x_c[pi_c, 0], x_c[pi_c, 1], c='{}'.format(colour_list[i]), linestyle='dashed')
@@ -58,34 +63,6 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
         clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_cyc_{}.eps'
                                           .format(time.asctime(time.localtime()))),
                              format='eps')
-    elif showcase_mode == 'obj':
-        return clusters_fig
-
-
-def plot_the_clustering_2d(cluster_num, a, x, showcase_mode='show', save_path='./rl_clustering_pics'):
-    """
-    Plot the clustering solution, with three different modes 'obj', 'show' or 'save', among which 'obj' can be used
-    with TensorBoard.
-    """
-    assert showcase_mode in ['show', 'save', 'obj'], 'param: showcase_mode should be among "obj", "show" or "save".'
-    assert cluster_num <= 7, "colour list not enough, provided 7 colours but have {} clusters".format(cluster_num)
-    colour_list = tfl_tube_colour_list
-
-    clusters_fig = plt.figure(dpi=300.0)
-    ax = clusters_fig.add_subplot(111)
-
-    for i in range(cluster_num):
-        ind_c = np.squeeze(np.argwhere(a == i))
-        x_c = x[ind_c]
-        if x_c.dim() == 1:
-            x_c = torch.unsqueeze(x_c, 0)
-        ax.scatter(x_c[:, 0], x_c[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
-
-    if showcase_mode == 'show':
-        clusters_fig.show()
-    elif showcase_mode == 'save':
-        clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_{}.png'
-                                          .format(time.asctime(time.localtime()))))
     elif showcase_mode == 'obj':
         return clusters_fig
 
@@ -127,4 +104,15 @@ def plot_grad_flow(named_parameters, logdir: str):
 
 
 if __name__ == '__main__':
-    pass
+    image = plt.imread('tmp/Northsea plt.png')
+    plt.imshow(image)
+
+    platforms = plt.ginput(-1, timeout=-1, show_clicks=True)
+    platforms = np.asarray(platforms, dtype=int)
+
+    plt.scatter(platforms[:, 0], platforms[:, 1], marker='x', c='r')
+    plt.show()
+
+    np.save('tmp/platforms.npy', platforms)
+
+    print(platforms)

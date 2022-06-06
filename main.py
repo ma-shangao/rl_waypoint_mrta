@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 
 from dataset_preparation import TSPDataset, BlobDataset
 from utilities import knn_graph_norm_adj, clip_grad_norms
-from visualisation import plot_grad_flow, plot_the_clustering_2d
+from visualisation import plot_grad_flow, plot_the_clustering_2d_with_cycle
 
 
 def prepare_training_log_dir(log_dir: str) -> tuple[str, str]:
@@ -231,14 +231,15 @@ def main(args, hparams, opts):
                     plot_grad_flow(model.named_parameters(), grad_flow_dir)
 
                 writer.add_figure('clustering showcase',
-                                  plot_the_clustering_2d(hparams['num_clusters'], a[0], x[0], showcase_mode='obj'),
+                                  plot_the_clustering_2d_with_cycle(hparams['num_clusters'], a[0], x[0],
+                                                                    showcase_mode='obj'),
                                   batch_id)
         writer.add_scalar('cost_d_max', cost_d_max_log, batch_id)
         writer.add_scalar('cost_d_sum', cost_d_sum_log, batch_id)
 
         if args.eval is True:
             if batch_id % opts['checkpoint_interval'] == 0:
-                plot_the_clustering_2d(hparams['num_clusters'], a[0], x[0], showcase_mode='show')
+                plot_the_clustering_2d_with_cycle(hparams['num_clusters'], a[0], x[0], showcase_mode='show')
 
 
 # Train an epoch
