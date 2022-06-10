@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 import argparse
+import pickle
 
 import numpy as np
 import os
@@ -112,6 +113,8 @@ def main(args, hparams, opts):
         log_dir = os.path.join(opts['log_dir'], opts['model_type'], cur_time.strftime("[%m-%d]%H.%M.%S"))
 
     writer = SummaryWriter(log_dir)
+
+    pickle.dump(args, open(os.path.join(log_dir, 'args.pkl'), 'wb'))
 
     # TRAIN ONE EPOCH
 

@@ -13,7 +13,6 @@ def prepare_blob_dataset(city_num: int = 50,
                          feature_dim: int = 2,
                          sample_num: int = 100000
                          ) -> (np.ndarray, np.ndarray):
-
     samples = np.zeros((sample_num, city_num, feature_dim))
     labels = np.zeros((sample_num, city_num))
 
@@ -76,3 +75,7 @@ class TSPDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.data[idx]
+
+
+if __name__ == '__main__':
+    pass
