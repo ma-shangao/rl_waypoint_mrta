@@ -10,6 +10,9 @@ from matplotlib.image import AxesImage
 tfl_tube_colour_list = ['#994417', '#FF0D00', '#001DF2', '#09BA00', '#FA80D4', '#65878D', '#730088', '#000000',
                         '#FFD600', '#00CFFF', '#6EFF99']
 
+line_wid = 0.8
+num_marker = False
+
 
 def plot_task_points(x, showcase_mode='show', save_path=None):
     clusters_fig = plt.figure(figsize=[5.0, 5.0], dpi=300.0)
@@ -50,12 +53,24 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
         x_c = x[ind_c]
         if x_c.dim() == 1:
             x_c = torch.unsqueeze(x_c, 0)
-        ax.scatter(x_c[:, 0], x_c[:, 1], c='{}'.format(colour_list[i]), marker='${}$'.format(i))
+
+        if num_marker is True:
+            mk = '${}$'.format(i)
+        else:
+            mk = 'o'
 
         if pi is not None:
             pi_c = pi[i]
             pi_c.append(pi[i][0])
-            ax.plot(x_c[pi_c, 0], x_c[pi_c, 1], c='{}'.format(colour_list[i]), linestyle='dashed')
+            ax.plot(x_c[pi_c, 0], x_c[pi_c, 1],
+                    c='{}'.format(colour_list[i]),
+                    linestyle='dashed',
+                    linewidth=line_wid)
+
+        ax.scatter(x_c[:, 0], x_c[:, 1],
+                   c='{}'.format(colour_list[i]),
+                   edgecolors='#000000',
+                   marker=mk)
 
     if showcase_mode == 'show':
         clusters_fig.show()
