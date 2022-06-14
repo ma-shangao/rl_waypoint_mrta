@@ -12,13 +12,13 @@ class Benchmarking:
     def __int__(self, dir_dataset, dir_args):
         self._import_dataset_args(dir_dataset, dir_args)
 
-        self.data_batches = self.dataset.data.numpy()
-        self.batch_size = self.data_batches.shape[0]
+        self.data_batch = self.dataset.data.numpy()  # [m, n, f]
+        self.batch_size = self.data_batch.shape[0]
 
         self._k_means_clustering()
 
-        for batch in range(self.batch_size):
-            self._cluster_tsp_solving(batch)
+        self.pi = []
+        self.c_d = []
 
     def _import_dataset_args(self, dir_dataset: str, dir_args: str):
         assert os.path.splitext(dir_dataset)[1] == '.pkl', "Should be a pickled file."
@@ -30,17 +30,18 @@ class Benchmarking:
 
     def _k_means_clustering(self):
         self.kmeans = KMeans(n_clusters=self.args.clusters_num)
-        self.labels = np.zeros_like(self.data_batches, dtype=int)
-        for batch in range(self.batch_size):
-            data = self.data_batches[batch]
-            self.labels[batch] = self.kmeans.fit_predict(data)
+        self.labels = np.zeros([self.batch_size, self.args.city_num], dtype=int)  # [m, n]
+        for data_id in range(self.batch_size):
+            data = self.data_batch[data_id]
+            self.labels[data_id] = self.kmeans.fit_predict(data)
 
-    def _cluster_tsp_solving(self, batch):
-        labels = self.labels[batch]
+    def _cluster_tsp_solving(self, data_id):
+        labels = self.labels[data_id]
         c_d = []
         c_d_origin = []
         x_c = []
         pi = []
+        degeneration_flag = False
         for cluster in range(self.args.clusters_num):
             ind_c = np.argwhere(labels == cluster).squeeze()
 
@@ -50,13 +51,21 @@ class Benchmarking:
                 c_d_origin.append(0)
                 # degeneration_count += 1
             else:
-                x_i = self.data_batches[batch, ind_c, :]
+                x_i = self.data_batch[data_id, ind_c, :]
                 x_c.append(x_i)
                 pi_i, dist_i = pointer_tsp_solve(x_i.numpy())
 
                 pi.append(pi_i)
                 c_d.append(dist_i)
                 c_d_origin.append(dist_i)
+
+        return pi, c_d, c_d_origin, degeneration_flag
+
+    def run_benchmark(self):
+        for data_id in range(self.batch_size):
+            pi, c_d, _, _ = self._cluster_tsp_solving(data_id)
+            self.pi.append(pi)
+            self.c_d.append(c_d)
 
 
 if __name__ == '__main__':
