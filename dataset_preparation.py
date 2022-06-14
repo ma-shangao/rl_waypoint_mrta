@@ -59,11 +59,15 @@ class TSPDataset(Dataset):
 
         self.data_set = []
         if filename is not None:
-            assert os.path.splitext(filename)[1] == '.pkl'
-
-            with open(filename, 'rb') as f:
-                data = pickle.load(f)
+            if os.path.splitext(filename)[1] == '.npy':
+                data = np.load(filename)
                 self.data = [torch.FloatTensor(row) for row in (data[offset:offset + num_samples])]
+            else:
+                assert os.path.splitext(filename)[1] == '.pkl'
+
+                with open(filename, 'rb') as f:
+                    data = pickle.load(f)
+                    self.data = [torch.FloatTensor(row) for row in (data[offset:offset + num_samples])]
         else:
             # Sample points randomly in [0, 1] square
             self.data = [torch.FloatTensor(size, 2).uniform_(0, 1) for _ in range(num_samples)]
@@ -78,13 +82,5 @@ class TSPDataset(Dataset):
 
 
 if __name__ == '__main__':
-    test = TSPDataset(size=100, num_samples=500)
-
-    i = 0
-    for data in test.data:
-        test.data[i] = data.numpy()
-        i += 1
-
-    n = np.asarray(test.data)
-
-    print('a')
+    test = TSPDataset(filename='tmp/platforms.npy')
+    print(len(test))
