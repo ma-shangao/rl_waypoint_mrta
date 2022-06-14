@@ -119,6 +119,8 @@ def main(args, hparams, opts):
     # TRAIN ONE EPOCH
 
     dataset = prepare_dataset(args)
+    if args.eval is True:
+        pickle.dump(dataset, open(os.path.join(log_dir, 'dataset.pkl'), 'wb'))
     train_iterator = DataLoader(dataset, batch_size=hparams['batch_size'], num_workers=1)
 
     model = model_prepare(args)

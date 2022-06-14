@@ -78,4 +78,13 @@ class TSPDataset(Dataset):
 
 
 if __name__ == '__main__':
-    pass
+    test = TSPDataset(size=100, num_samples=500)
+
+    i = 0
+    for data in test.data:
+        test.data[i] = data.numpy()
+        i += 1
+
+    n = np.asarray(test.data)
+
+    print('a')
