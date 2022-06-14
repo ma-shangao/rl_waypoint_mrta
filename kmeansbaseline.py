@@ -73,12 +73,12 @@ class Benchmarking:
         for data_id in range(self.batch_size):
             pi, c_d, _, _ = self._cluster_tsp_solving(data_id)
 
-        self.pi.append(pi)
-        self.c_d.append(sum(c_d))
+            self.pi.append(pi)
+            self.c_d.append(sum(c_d))
 
 
 if __name__ == '__main__':
-    b = Benchmarking(dir_dataset='logs/eval/moe_mlp/[06-14]16.00.23/dataset.pkl', 
-                     dir_args='logs/eval/moe_mlp/[06-14]16.00.23/args.pkl')
+    b = Benchmarking(dir_dataset='logs/eval/moe_mlp/[06-14]19.35.27/dataset.pkl',
+                     dir_args='logs/eval/moe_mlp/[06-14]19.35.27/args.pkl')
     b.run_benchmark()
-    print(b.c_d)
+    print(np.mean(b.c_d))
