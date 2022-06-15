@@ -42,6 +42,8 @@ def prepare_dataset(args: argparse.Namespace) -> torch.utils.data.Dataset:
         dataset = BlobDataset(args.city_num,
                               args.feature_dim,
                               args.sample_num)
+    elif args.data_type == 'file':
+        dataset = TSPDataset(filename=args.data_filename)
     else:
         raise ValueError("Wrong 'data_type' value")
     return dataset
