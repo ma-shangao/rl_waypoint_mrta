@@ -19,7 +19,7 @@ def prepare_blob_dataset(city_num: int = 50,
     for sample in range(sample_num):
         samples[sample, :, :], labels[sample, :] = make_blobs(city_num,
                                                               feature_dim,
-                                                              cluster_std=0.1,
+                                                              cluster_std=0.07,
                                                               center_box=(0.0, 1.0))
 
     return samples, labels
