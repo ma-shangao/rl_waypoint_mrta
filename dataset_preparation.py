@@ -61,6 +61,9 @@ class TSPDataset(Dataset):
         if filename is not None:
             if os.path.splitext(filename)[1] == '.npy':
                 data = np.load(filename)
+                assert data.ndim == (2 or 3), "data.ndim should either be 2 or 3"
+                if data.ndim == 2:
+                    data = np.expand_dims(data, axis=0)
                 self.data = [torch.FloatTensor(row) for row in (data[offset:offset + num_samples])]
             else:
                 assert os.path.splitext(filename)[1] == '.pkl'
@@ -83,4 +86,5 @@ class TSPDataset(Dataset):
 
 if __name__ == '__main__':
     test = TSPDataset(filename='tmp/platforms.npy')
+    test2 = TSPDataset(size=20, num_samples=50)
     print(len(test))
