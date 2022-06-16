@@ -78,7 +78,7 @@ class Benchmarking:
 
 
 if __name__ == '__main__':
-    b = Benchmarking(dir_dataset='logs/eval/moe_mlp/[06-14]19.35.27/dataset.pkl',
-                     dir_args='logs/eval/moe_mlp/[06-14]19.35.27/args.pkl')
+    b = Benchmarking(dir_dataset='logs/eval/moe_mlp/[06-16]17.23.13/dataset.pkl',
+                     dir_args='logs/eval/moe_mlp/[06-16]17.23.13/args.pkl')
     b.run_benchmark()
     print(np.mean(b.c_d))
