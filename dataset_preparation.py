@@ -83,6 +83,10 @@ class TSPDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
+    def data_normalisation(self):
+        self.data = [(self.data[row] - self.data[row].min()) / (self.data[row].max() - self.data[row].min())
+                     for row in range(self.size)]
+
 
 if __name__ == '__main__':
     test = TSPDataset(filename='tmp/platforms.npy')

@@ -29,6 +29,8 @@ def arg_parse():
     options.add_argument('--data_type', type=str, choices=['blob', 'random', 'file'], default='random',
                          help="Type of generated dataset")
     options.add_argument('--data_filename', type=str, default=None, help="directory of the to dataset for importing")
+    options.add_argument('--data_normalise', action='store_true',
+                         help="Indicate whether the dataset needs normalisation")
     options.add_argument('--log_dir', type=str, default='logs', help="Directory to save the logs")
     options.add_argument('--checkpoint_interval', type=int, default=200,
                          help="Interval to generate showcase and save model")

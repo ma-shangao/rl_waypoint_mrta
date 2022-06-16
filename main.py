@@ -44,6 +44,8 @@ def prepare_dataset(args: argparse.Namespace) -> torch.utils.data.Dataset:
                               args.sample_num)
     elif args.data_type == 'file':
         dataset = TSPDataset(filename=args.data_filename)
+        if args.data_normalise is True:
+            dataset.data_normalisation()
     else:
         raise ValueError("Wrong 'data_type' value")
     return dataset
