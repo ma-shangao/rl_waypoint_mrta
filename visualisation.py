@@ -10,6 +10,8 @@ from matplotlib.image import AxesImage
 tfl_tube_colour_list = ['#994417', '#FF0D00', '#001DF2', '#09BA00', '#FA80D4', '#65878D', '#730088', '#000000',
                         '#FFD600', '#00CFFF', '#6EFF99']
 
+# Colour interpreter: 1. Bakerloo brown, 2. Central red, 3. Piccadilly blue, 4. District green, 5. H&C pink
+
 line_wid = 0.8
 num_marker = False
 
@@ -69,7 +71,7 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
 
         ax.scatter(x_c[:, 0], x_c[:, 1],
                    c='{}'.format(colour_list[i]),
-                   edgecolors='#000000',
+                   # edgecolors='#000000',
                    marker=mk)
 
     if showcase_mode == 'show':
