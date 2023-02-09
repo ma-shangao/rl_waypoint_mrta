@@ -46,6 +46,7 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
 
     clusters_fig = plt.figure(figsize=[5.0, 5.0], dpi=300.0)
     ax = clusters_fig.add_subplot(111)
+    ax.set_aspect('equal', adjustable='box', anchor='C')
 
     if background is not None:
         ax.imshow(background)
