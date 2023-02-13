@@ -19,6 +19,7 @@ num_marker = False
 def plot_task_points(x, showcase_mode='show', save_path=None):
     clusters_fig = plt.figure(figsize=[5.0, 5.0], dpi=300.0)
     ax = clusters_fig.add_subplot(111)
+    ax.set_aspect('equal', adjustable='box', anchor='C')
     ax.scatter(x[:, 0], x[:, 1])
 
     if showcase_mode == 'show':
