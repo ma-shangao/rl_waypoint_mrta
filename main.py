@@ -26,7 +26,7 @@ from utilities import knn_graph_norm_adj, clip_grad_norms
 from visualisation import plot_grad_flow, plot_the_clustering_2d_with_cycle
 
 
-def prepare_training_log_dir(log_dir: str) -> tuple[str, str]:
+def prepare_training_log_dir(log_dir: str) -> 'tuple[str, str]':
     model_dir = os.path.join(log_dir, 'trained_model')
     os.mkdir(model_dir)
     grad_flow_dir = os.path.join(log_dir, 'grad_flow')

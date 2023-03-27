@@ -1,0 +1,10 @@
+numpy
+torch
+torchvision
+torchaudio
+torch_geometric
+tensorboard
+matplotlib
+tqdm
+spektral
+sko
