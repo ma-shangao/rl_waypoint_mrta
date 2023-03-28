@@ -2,13 +2,15 @@
 This project uses DRL to address waypoint following task allocation and planning for multi-robot systems.
 
 ## 1. Dependencies
-Please see the `requirements.txt` file for the dependencies. To install the dependencies, run the following command:
+This software relies on Python 3.9. 
+
+Please see the `requirements.txt` file for the details of dependencies. To install the dependencies, run the following command:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Otherwise, you can use the docker file to build the environment. To build the docker image, run the following command:
+Otherwise, you can use the `Dockerfile` provided to build the environment. To build the docker image, run the following command:
 
 ```bash
 docker build -t rlwaypointmrta:latest .
