@@ -22,6 +22,8 @@ To run the docker image, run the following command:
 docker run --rm -it  rlwaypointmrta:latest
 ```
 
+The Pre-trained RL models for solving TSP problems are from: https://github.com/wouterkool/attention-learn-to-route
+
 ## 2. Usage
 
 ### 2.1. Training
