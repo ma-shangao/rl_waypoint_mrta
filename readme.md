@@ -1,4 +1,6 @@
 # rl_waypoint_mrta
+![Python](https://img.shields.io/badge/python-3.9-blue.svg)
+
 This project uses DRL to address waypoint following task allocation and planning for multi-robot systems.
 
 ## 1. Dependencies
