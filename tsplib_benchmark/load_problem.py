@@ -5,18 +5,15 @@ import numpy as np
 
 
 class tsplib_loader:
-    """class to convert tsplib data to numpy array
+    """Load the TSP problem from .tsp file
+
+    Args:
+        filename (str): directory of the .tsp file
+
+    Raises:
+        NotImplementedError: .tsp file not provided
     """
-    def __init__(self, filename: str = None):
-        """_summary_
-
-        Args:
-            filename (str, optional): Path to the tsplib problem file.
-            Defaults to None.
-
-        Raises:
-            NotImplementedError: _description_
-        """
+    def __init__(self, filename: str):
         self.data_set = []
         if filename is not None:
             problem = tsplib95.load(filename)
