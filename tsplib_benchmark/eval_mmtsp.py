@@ -2,6 +2,7 @@
 import numpy as np
 import argparse
 import torch
+
 from main import model_prepare, cluster_tsp_solver
 
 
@@ -14,7 +15,8 @@ class eval_mmtsp:
         self.load_data(problem_data_dir)
 
         if eval_with_model:
-            self.tours = self.eval_single_instance('trained_sessions/moe_mlp/rand_50-3/trained_model/batch30400.pt')
+            self.tours = self.eval_single_instance(
+                'trained_sessions/moe_mlp/rand_50-3/trained_model/batch30400.pt')
 
     def load_data(self, filename: str):
         """Load the TSP problem from .npy file
@@ -68,5 +70,9 @@ class eval_mmtsp:
         for tour in self.tours:
             for i in range(len(tour)):
                 total_distance += np.linalg.norm(
-                    self.data_set[tour[i]] - self.data_set[tour[i + 1]])
+                    self.data_set[tour[i - 1]] - self.data_set[tour[i]])
         return total_distance
+
+
+if __name__ == '__main__':
+    print(eval_mmtsp('tmp/berlin52.npy').measure_distances())
