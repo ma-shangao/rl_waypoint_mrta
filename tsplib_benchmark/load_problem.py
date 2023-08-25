@@ -14,10 +14,11 @@ class tsplib_loader:
         NotImplementedError: .tsp file not provided
     """
     def __init__(self, filename: str):
+        self.problem = None
         self.data_set = []
         if filename is not None:
-            problem = tsplib95.load(filename)
-            problem_dict = problem.as_dict()
+            self.problem = tsplib95.load(filename)
+            problem_dict = self.problem.as_dict()
             size = problem_dict['dimension']
             self.data_set = np.zeros((size, 2))
             for i in range(size):
@@ -35,5 +36,7 @@ class tsplib_loader:
 
 
 if __name__ == '__main__':
-    tsp_lib_loader = tsplib_loader('tsplib_problems/berlin52.tsp')
-    tsp_lib_loader.save_npm('tmp/berlin52.npy')
+    problem_name = 'berlin52'
+
+    tsp_lib_loader = tsplib_loader('tsplib_problems/' + problem_name + '.tsp')
+    tsp_lib_loader.save_npm('tmp/' + problem_name + '.npy')

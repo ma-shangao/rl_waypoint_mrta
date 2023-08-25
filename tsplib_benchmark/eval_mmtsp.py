@@ -2,8 +2,11 @@
 import numpy as np
 import argparse
 import torch
+import sys
+import os
 
 from main import model_prepare, cluster_tsp_solver
+from tsplib_benchmark.load_problem import tsplib_loader
 
 
 class eval_mmtsp:
@@ -16,7 +19,7 @@ class eval_mmtsp:
 
         if eval_with_model:
             self.tours = self.eval_single_instance(
-                'trained_sessions/moe_mlp/rand_50-3/trained_model/batch30400.pt')
+                'trained_sessions/moe_mlp/rand_100-3/trained_model/batch29600.pt')
 
     def load_data(self, filename: str):
         """Load the TSP problem from .npy file
@@ -32,7 +35,7 @@ class eval_mmtsp:
         args.model_type = 'moe_mlp'
         args.clusters_num = 3
         args.n_component = 3
-        args.city_num = 52
+        args.city_num = 100
         args.feature_dim = 2
         args.hidden_dim = 128
         args.train = False
@@ -71,8 +74,16 @@ class eval_mmtsp:
             for i in range(len(tour)):
                 total_distance += np.linalg.norm(
                     self.data_set[tour[i - 1]] - self.data_set[tour[i]])
-        return total_distance
+        return float(total_distance)
+
+    # TODO: Implement the following function
+    # def eval_single_instance_with_batch_models(self, problem_name: str):
+    #     tsplib_inst = tsplib_loader(os.path.join(
+    #         'tsplib_problems',
+    #         problem_name + '.tsp'))
 
 
 if __name__ == '__main__':
-    print(eval_mmtsp('tmp/berlin52.npy').measure_distances())
+    sys.path.insert(0, os.getcwd())
+    print(sys.path)
+    print(eval_mmtsp('tmp/kroA100.npy').measure_distances())
