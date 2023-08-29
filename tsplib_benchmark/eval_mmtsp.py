@@ -126,7 +126,7 @@ class eval_mmtsp:
         assert degen_count + len(mtsp_costs) == sample_num
         degen_rate = degen_count / sample_num
         print('Degeneration rate: ', degen_rate)
-        
+
         avg_eval_time = elapsed / sample_num
         print('Average evaluation time: ', avg_eval_time)
 
@@ -134,5 +134,5 @@ class eval_mmtsp:
 if __name__ == '__main__':
     sys.path.insert(0, os.getcwd())
     print(sys.path)
-    eval = eval_mmtsp('kroA100')
+    eval = eval_mmtsp('kroA200')
     eval.eval_single_instance_with_batch_models(4)
