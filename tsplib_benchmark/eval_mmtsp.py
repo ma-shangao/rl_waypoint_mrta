@@ -103,6 +103,7 @@ class eval_mmtsp:
 
         degen_count = 0
         mtsp_costs = []
+        timers = []
 
         for i in range(lower_bound, upper_bound + step, step):
             t = time.time()
@@ -118,6 +119,7 @@ class eval_mmtsp:
             except ValueError:
                 degen_count += 1
             elapsed = time.time() - t
+            timers.append(elapsed)
 
         min_cost = min(mtsp_costs)
         print('Min cost: ', min_cost)
@@ -127,12 +129,15 @@ class eval_mmtsp:
         degen_rate = degen_count / sample_num
         print('Degeneration rate: ', degen_rate)
 
-        avg_eval_time = elapsed / sample_num
+        avg_eval_time = np.mean(timers)
         print('Average evaluation time: ', avg_eval_time)
+
+        std_eval_time = np.std(timers)
+        print('Standard deviation of evaluation time: ', std_eval_time)
 
 
 if __name__ == '__main__':
     sys.path.insert(0, os.getcwd())
     print(sys.path)
-    eval = eval_mmtsp('kroA200')
-    eval.eval_single_instance_with_batch_models(4)
+    eval = eval_mmtsp(None, 'tmp/rand15.npy')
+    eval.eval_single_instance_with_batch_models(3)
