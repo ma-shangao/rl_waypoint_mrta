@@ -23,6 +23,7 @@ To run the docker image, run the following command:
 ```bash
 docker run --rm -it  rlwaypointmrta:latest
 ```
+The TSPLIB data files are from: http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsplib.html
 
 The Pre-trained RL models for solving TSP problems are from: https://github.com/wouterkool/attention-learn-to-route
 

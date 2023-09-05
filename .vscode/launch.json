@@ -12,9 +12,9 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--eval", 
-                "--eval_dir",
-                "trained_sessions/moe_mlp/rand_100-3/trained_model/batch31200.pt"
+                // "--eval", 
+                // "--eval_dir",
+                // "trained_sessions/moe_mlp/rand_100-3/trained_model/batch31200.pt"
             ]
         }
     ]
