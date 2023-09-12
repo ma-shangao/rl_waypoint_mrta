@@ -3,6 +3,7 @@ torch
 torchvision
 torchaudio
 torch_geometric
+torch-tb-profiler
 tensorboard
 matplotlib
 tqdm
