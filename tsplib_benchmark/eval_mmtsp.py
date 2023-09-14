@@ -97,8 +97,8 @@ class eval_mmtsp:
     def eval_single_instance_with_batch_models(self, cluster_num: int):
         self.cluster_num = cluster_num
 
-        lower_bound = 5000
-        upper_bound = 31200
+        lower_bound = 0
+        upper_bound = 29400
         step = 200
 
         degen_count = 0
@@ -139,5 +139,5 @@ class eval_mmtsp:
 if __name__ == '__main__':
     sys.path.insert(0, os.getcwd())
     print(sys.path)
-    eval = eval_mmtsp(None, 'tmp/rand15.npy')
-    eval.eval_single_instance_with_batch_models(3)
+    eval = eval_mmtsp('kroA200')
+    eval.eval_single_instance_with_batch_models(5)
