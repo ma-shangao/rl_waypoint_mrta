@@ -14,7 +14,12 @@
             "args": [
                 // "--eval", 
                 // "--eval_dir",
-                // "trained_sessions/moe_mlp/rand_100-3/trained_model/batch31200.pt"
+                // "trained_sessions/moe_mlp/rand_100-3/trained_model/batch31200.pt",
+                // "--train",
+                // "--city_num",
+                // "100",
+                // "--clusters_num",
+                // "5"
             ]
         }
     ]
