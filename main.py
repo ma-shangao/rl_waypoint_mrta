@@ -98,7 +98,7 @@ def cluster_tsp_solver(k: int, m: int, a, x, degeneration_penalty: float):
         else:
             x_i = x[m, ind_c, :]
             x_c.append(x_i)
-            pi_i, dist_i = pointer_tsp_solve(x_i.numpy())
+            pi_i, dist_i = pointer_tsp_solve(x_i.cpu().numpy())
 
             pi.append(pi_i)
             c_d.append(dist_i)
@@ -108,6 +108,19 @@ def cluster_tsp_solver(k: int, m: int, a, x, degeneration_penalty: float):
 
 
 def main(args, hparams, opts):
+
+    # Check if CUDA (GPU support) is available
+    # if torch.cuda.is_available():
+    #     device = torch.device("cuda")
+    #     print("Using CUDA")
+    # else:
+    device = torch.device("cpu")
+    print("Using CPU")
+
+    # TODO: Check if this is necessary    
+    # Set the seed for reproducibility
+    # torch.manual_seed(args.seed)
+
     eps = np.finfo(np.float32).eps.item()
     cur_time = datetime.now() + timedelta(hours=0)
 
@@ -128,6 +141,7 @@ def main(args, hparams, opts):
     train_iterator = DataLoader(dataset, batch_size=hparams['batch_size'], num_workers=1)
 
     model = model_prepare(args)
+    model = model.to(device)
 
     if args.train is True:
         model_dir, grad_flow_dir = prepare_training_log_dir(log_dir)
@@ -137,12 +151,14 @@ def main(args, hparams, opts):
     for batch_id, batch in enumerate(tqdm(train_iterator, disable=False)):
         # begin to train a batch
         x = batch  # torch.Size([32, 50, 2])
+        x = x.to(device)
 
         if opts['data_type'] == 'blob':
             x = x['sample']
 
         # compute the normalised adjacency matrix of the sample city set ::: adj take up 1/10
-        adj_norm = knn_graph_norm_adj(x, num_knn=4, knn_mode='distance')
+        adj_norm = knn_graph_norm_adj(x.cpu(), num_knn=4, knn_mode='distance')
+        adj_norm = adj_norm.to(device)
 
         bs = hparams['batch_size']
         sequence_len = hparams['city_num']
@@ -157,10 +173,10 @@ def main(args, hparams, opts):
             _, _, r_cc, r_co = dense_mincut_pool(x, adj_norm, cluster_policy_logits)
 
         # initialise the tensor to store the total distance
-        cost_d_max = torch.tensor(data=np.zeros(x.shape[0]))
-        cost_d_sum = torch.tensor(data=np.zeros(x.shape[0]))
-        cost_d_max_origin = torch.tensor(data=np.zeros(x.shape[0]))
-        cost_d_sum_origin = torch.tensor(data=np.zeros(x.shape[0]))
+        cost_d_max = torch.tensor(data=np.zeros(x.shape[0]), device=device)
+        cost_d_sum = torch.tensor(data=np.zeros(x.shape[0]), device=device)
+        cost_d_max_origin = torch.tensor(data=np.zeros(x.shape[0]), device=device)
+        cost_d_sum_origin = torch.tensor(data=np.zeros(x.shape[0]), device=device)
 
         degeneration_count = 0
 
@@ -240,7 +256,7 @@ def main(args, hparams, opts):
                     plot_grad_flow(model.named_parameters(), grad_flow_dir)
 
                 writer.add_figure('clustering showcase',
-                                  plot_the_clustering_2d_with_cycle(hparams['num_clusters'], a[0], x[0],
+                                  plot_the_clustering_2d_with_cycle(hparams['num_clusters'], a.cpu()[0], x.cpu()[0],
                                                                     showcase_mode='obj'),
                                   batch_id)
         writer.add_scalar('cost_d_max', cost_d_max_log, batch_id)
@@ -248,7 +264,7 @@ def main(args, hparams, opts):
 
         if args.eval is True:
             if batch_id % opts['checkpoint_interval'] == 0:
-                plot_the_clustering_2d_with_cycle(hparams['num_clusters'], a[0], x[0], showcase_mode='show')
+                plot_the_clustering_2d_with_cycle(hparams['num_clusters'], a.cpu()[0], x.cpu()[0], showcase_mode='show')
 
 
 # Train an epoch
