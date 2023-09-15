@@ -118,7 +118,7 @@ def main(args, hparams, opts):
     device = torch.device("cpu")
     print("Using CPU")
 
-    # TODO: Check if this is necessary    
+    # TODO: Check if this is necessary
     # Set the seed for reproducibility
     # torch.manual_seed(args.seed)
 

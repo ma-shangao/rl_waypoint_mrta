@@ -118,7 +118,7 @@ class eval_mmtsp:
             t = time.time()
             try:
                 tours = self.eval_single_instance(
-                    'trained_sessions/' + 
+                    'trained_sessions/' +
                     self.model_type +
                     '/rand_100-' +
                     str(self.cluster_num) +
@@ -151,4 +151,4 @@ if __name__ == '__main__':
     sys.path.insert(0, os.getcwd())
     print(sys.path)
     eval = eval_mmtsp('kroA100')
-    eval.eval_single_instance_with_batch_models(3, 'moe_mlp', 128)
+    eval.eval_single_instance_with_batch_models(3, 'mlp', 131)
