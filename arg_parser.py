@@ -31,7 +31,7 @@ def arg_parse():
                          help="Number of experts for MoE")
     hparams.add_argument('--cost_d_op', choices=['sum', 'max'], type=str,
                          default='sum',
-                         help="Number of experts for MoE")
+                         help="minsum or minmax for the cost function")
     hparams.add_argument('--penalty_score', type=float, default=10.0,
                          help="Penalty score for degeneration")
 
