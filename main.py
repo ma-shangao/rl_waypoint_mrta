@@ -60,6 +60,7 @@ def model_prepare(args: argparse.Namespace) -> torch.nn.Module:
     elif args.model_type == 'attention':
         # WIP
         model = None
+        raise NotImplementedError
     else:
         raise ValueError("Wrong 'model_type' value")
 
