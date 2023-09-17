@@ -61,5 +61,8 @@ plt.ylabel('Cost: total distance travelled')
 # plt.title('RL Training Cost Curves')
 plt.legend()
 
+# Add grid
+plt.grid(alpha=0.3)
+
 # Show the plot
 plt.show()
