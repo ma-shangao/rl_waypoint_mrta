@@ -39,7 +39,7 @@ for m in [50, 100]:
     std_dev = np.std(values, axis=0)
     upper_bound = average + std_dev
     lower_bound = average - std_dev
-    
+
     averages[m] = average
     upper_bounds[m] = upper_bound
     lower_bounds[m] = lower_bound
