@@ -49,11 +49,11 @@ plt.figure(figsize=(8, 6))
 
 # Plot the average line with shaded area for bounds
 # plt.plot(step, values, label='Cost')
-plt.plot(step, averages[50], color='cornflowerblue', linestyle='-', label='M = 50 Average')
-plt.fill_between(step, lower_bounds[50], upper_bounds[50], color='lightsteelblue', alpha=0.4, label='M = 50 SD')
+plt.plot(step, averages[50], color='cornflowerblue', linestyle='-', label='N = 50 Average')
+plt.fill_between(step, lower_bounds[50], upper_bounds[50], color='lightsteelblue', alpha=0.4, label='N = 50 SD')
 
-plt.plot(step, averages[100], color='sandybrown', linestyle='-', label='M = 100 Average')
-plt.fill_between(step, lower_bounds[100], upper_bounds[100], color='peachpuff', alpha=0.4, label='M = 100 SD')
+plt.plot(step, averages[100], color='sandybrown', linestyle='-', label='N = 100 Average')
+plt.fill_between(step, lower_bounds[100], upper_bounds[100], color='peachpuff', alpha=0.4, label='N = 100 SD')
 
 # Add labels and legend
 plt.xlabel('Steps')
