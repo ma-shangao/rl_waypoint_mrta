@@ -68,22 +68,22 @@ class eval_mmtsp:
             m=0, a=a, x=x_norm,
             degeneration_penalty=10.0)
         if not degeneration_flag:
-            return pi
+            return sum(c_d_origin) * (x.max() - x.min())
         else:
             raise ValueError('Degeneration detected')
 
-    def measure_distances(self, tours) -> float:
-        """Measure the total distance of the tours
+    # def measure_distances(self, tours) -> float:
+    #     """Measure the total distance of the tours
 
-        Returns:
-            float: total distance of the tours
-        """
-        total_distance = 0
-        for tour in tours:
-            for i in range(len(tour)):
-                total_distance += np.linalg.norm(
-                    self.data_set[tour[i - 1]] - self.data_set[tour[i]])
-        return float(total_distance)
+    #     Returns:
+    #         float: total distance of the tours
+    #     """
+    #     total_distance = 0
+    #     for tour in tours:
+    #         for i in range(len(tour)):
+    #             total_distance += np.linalg.norm(
+    #                 self.data_set[tour[i - 1]] - self.data_set[tour[i]])
+    #     return float(total_distance)
 
     def load_tsplib_isinstance(self, problem_name: str):
         tsplib_inst = tsplib_loader(os.path.join(
@@ -97,8 +97,8 @@ class eval_mmtsp:
     def eval_single_instance_with_batch_models(self, cluster_num: int):
         self.cluster_num = cluster_num
 
-        lower_bound = 0
-        upper_bound = 29400
+        lower_bound = 2000
+        upper_bound = 31200
         step = 200
 
         degen_count = 0
@@ -108,13 +108,13 @@ class eval_mmtsp:
         for i in range(lower_bound, upper_bound + step, step):
             t = time.time()
             try:
-                tours = self.eval_single_instance(
+                cost = self.eval_single_instance(
                     'trained_sessions/moe_mlp/rand_100-' +
                     str(self.cluster_num) +
                     '/trained_model/batch' +
                     str(i) +
                     '.pt')
-                mtsp_costs.append(self.measure_distances(tours))
+                mtsp_costs.append(cost)
 
             except ValueError:
                 degen_count += 1
@@ -123,6 +123,12 @@ class eval_mmtsp:
 
         min_cost = min(mtsp_costs)
         print('Min cost: ', min_cost)
+
+        avg_cost = np.mean(mtsp_costs)
+        print('Average cost: ', avg_cost)
+
+        std_cost = np.std(mtsp_costs)
+        print('Standard deviation of cost: ', std_cost)
 
         sample_num = (upper_bound - lower_bound) / step + 1
         assert degen_count + len(mtsp_costs) == sample_num
@@ -139,5 +145,5 @@ class eval_mmtsp:
 if __name__ == '__main__':
     sys.path.insert(0, os.getcwd())
     print(sys.path)
-    eval = eval_mmtsp('kroA200')
-    eval.eval_single_instance_with_batch_models(5)
+    eval = eval_mmtsp('kroA150')
+    eval.eval_single_instance_with_batch_models(4)

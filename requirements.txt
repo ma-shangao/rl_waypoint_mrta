@@ -11,3 +11,4 @@ spektral
 sko
 tsplib95 == 0.7.1
 ipykernel
+scikit-learn
