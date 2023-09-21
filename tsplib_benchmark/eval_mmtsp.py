@@ -159,4 +159,3 @@ if __name__ == '__main__':
     print(sys.path)
     eval = eval_mmtsp('kroA100')
     eval.eval_single_instance_with_batch_models(3, 'mlp', 131)
-    
