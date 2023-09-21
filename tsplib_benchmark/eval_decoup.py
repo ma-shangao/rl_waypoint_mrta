@@ -5,7 +5,7 @@ import os
 import time
 from tsplib_benchmark.load_problem import tsplib_loader
 from tsp_solver import pointer_tsp_solve
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, SpectralClustering
 
 
 class eval_decoup:
@@ -23,6 +23,12 @@ class eval_decoup:
         kmeans = KMeans(n_clusters=self.cluster_num, n_init=1, random_state=seed)
         labels = np.zeros([self.city_num], dtype=int)
         labels = kmeans.fit_predict(self.data_set)
+        return labels
+
+    def _spectral_baseline(self, seed: int = None):
+        spectral = SpectralClustering(n_clusters=self.cluster_num, n_init=1, random_state=seed)
+        labels = np.zeros([self.city_num], dtype=int)
+        labels = spectral.fit_predict(self.data_set)
         return labels
 
     def _cluster_tsp_solving(self, labels):
@@ -68,5 +74,5 @@ class eval_decoup:
 
 
 if __name__ == '__main__':
-    eval = eval_decoup('kroA100', 3)
+    eval = eval_decoup('kroA200', 3)
     eval.eval_batch()

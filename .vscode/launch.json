@@ -21,14 +21,16 @@
                 "100",
                 "--clusters_num",
                 "3",
-                // "--batch_size",
-                // "256",
+                "--batch_size",
+                "1024",
                 "--model_type",
-                "mlp",
+                "moe_mlp",
                 "--hidden_dim",
                 "128",
+                "--n_component",
+                "1",
                 "--checkpoint_interval",
-                "1"
+                "10"
             ]
         }
     ]
