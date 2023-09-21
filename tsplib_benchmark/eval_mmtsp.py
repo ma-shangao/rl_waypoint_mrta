@@ -16,8 +16,9 @@ class eval_mmtsp:
         self.data_set = []
         self.problem = None
         self.city_num = None
-
+        self.model_type = None
         self.cluster_num = None
+        self.hidden_dim = None
 
         if problem_name is None:
             if problem_data_dir is None:
@@ -41,17 +42,21 @@ class eval_mmtsp:
     def eval_single_instance(self, eval_model_dir: str) -> list:
         # Prepare argsparse
         args = argparse.Namespace()
-        args.model_type = 'moe_mlp'
+        args.model_type = self.model_type
         args.clusters_num = self.cluster_num
         args.n_component = 3
         args.city_num = self.city_num
         args.feature_dim = 2
-        args.hidden_dim = 128
+        args.hidden_dim = self.hidden_dim
         args.train = False
         args.eval = True
         args.eval_dir = eval_model_dir
 
         model = model_prepare(args)
+
+        # Print the number of parameters of the model
+        print('Number of parameters: ',
+              sum(p.numel() for p in model.parameters() if p.requires_grad))
 
         x = self.data_set
         x = np.expand_dims(x, 0)
@@ -94,11 +99,16 @@ class eval_mmtsp:
         self.data_set = tsplib_inst.data_set
         self.city_num = self.problem.dimension
 
-    def eval_single_instance_with_batch_models(self, cluster_num: int):
+    def eval_single_instance_with_batch_models(self, cluster_num: int,
+                                               model_type: str,
+                                               hidden_dim: int):
         self.cluster_num = cluster_num
+        self.model_type = model_type
+        self.hidden_dim = hidden_dim
 
         lower_bound = 2000
         upper_bound = 31200
+
         step = 200
 
         degen_count = 0
@@ -108,8 +118,10 @@ class eval_mmtsp:
         for i in range(lower_bound, upper_bound + step, step):
             t = time.time()
             try:
-                cost = self.eval_single_instance(
-                    'trained_sessions/moe_mlp/rand_100-' +
+                tours = self.eval_single_instance(
+                    'trained_sessions/' +
+                    self.model_type +
+                    '/rand_100-' +
                     str(self.cluster_num) +
                     '/trained_model/batch' +
                     str(i) +
@@ -145,5 +157,6 @@ class eval_mmtsp:
 if __name__ == '__main__':
     sys.path.insert(0, os.getcwd())
     print(sys.path)
-    eval = eval_mmtsp('kroA150')
-    eval.eval_single_instance_with_batch_models(4)
+    eval = eval_mmtsp('kroA100')
+    eval.eval_single_instance_with_batch_models(3, 'mlp', 131)
+    
