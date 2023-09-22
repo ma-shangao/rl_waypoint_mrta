@@ -106,8 +106,8 @@ class eval_mmtsp:
         self.model_type = model_type
         self.hidden_dim = hidden_dim
 
-        lower_bound = 0
-        upper_bound = 31200
+        lower_bound = 3000
+        upper_bound = 29400
 
         step = 200
 
@@ -159,4 +159,4 @@ if __name__ == '__main__':
     sys.path.insert(0, os.getcwd())
     print(sys.path)
     eval = eval_mmtsp('kroA200')
-    eval.eval_single_instance_with_batch_models(3, 'moe_mlp', 128)
+    eval.eval_single_instance_with_batch_models(5, 'moe_mlp', 128)
