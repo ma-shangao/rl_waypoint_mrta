@@ -5,11 +5,11 @@ import os
 import time
 from tsplib_benchmark.load_problem import tsplib_loader
 from tsp_solver import pointer_tsp_solve
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, SpectralClustering
 
 
 class eval_decoup:
-    def __init__(self, problem_name: str, cluster_num: int):
+    def __init__(self, problem_name: str, cluster_num: int, method: str = 'kmeans'):
         tsplib_inst = tsplib_loader(os.path.join(
             'tsplib_problems',
             problem_name + '.tsp'))
@@ -18,11 +18,22 @@ class eval_decoup:
         self.data_set = tsplib_inst.data_set
         self.city_num = tsplib_inst.problem.dimension
         self.cluster_num = cluster_num
+        self.method = method
 
     def _kmeans_baseline(self, seed: int = None):
         kmeans = KMeans(n_clusters=self.cluster_num, n_init=1, random_state=seed)
         labels = np.zeros([self.city_num], dtype=int)
         labels = kmeans.fit_predict(self.data_set)
+        return labels
+
+    def _spectral_baseline(self, seed: int = None):
+        spectral = SpectralClustering(n_clusters=self.cluster_num, random_state=seed, assign_labels='cluster_qr', affinity='nearest_neighbors')
+        labels = np.zeros([self.city_num], dtype=int)
+        labels = spectral.fit_predict(self.data_set)
+        return labels
+    
+    def _random_baseline(self, seed: int = None):
+        labels = np.random.randint(self.cluster_num, size=self.city_num)
         return labels
 
     def _cluster_tsp_solving(self, labels):
@@ -43,7 +54,15 @@ class eval_decoup:
         return c_d_origin, x_c, pi, degeneration_flag
 
     def eval_single_instance(self, seed: int = None):
-        labels = self._kmeans_baseline(seed)
+        if self.method == 'kmeans':
+            labels = self._kmeans_baseline(seed)
+        elif self.method == 'spectral':
+            labels = self._spectral_baseline(seed)
+        elif self.method == 'random':
+            labels = self._random_baseline(seed)
+        else:
+            raise ValueError('Method not supported')
+
         c_d_origin, x_c, pi, degeneration_flag = self._cluster_tsp_solving(labels)
         if not degeneration_flag:
             return pi, c_d_origin
@@ -68,5 +87,5 @@ class eval_decoup:
 
 
 if __name__ == '__main__':
-    eval = eval_decoup('kroA100', 3)
+    eval = eval_decoup('kroA200', 4, 'spectral')
     eval.eval_batch()

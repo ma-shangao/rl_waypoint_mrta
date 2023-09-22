@@ -111,12 +111,12 @@ def cluster_tsp_solver(k: int, m: int, a, x, degeneration_penalty: float):
 def main(args, hparams, opts):
 
     # Check if CUDA (GPU support) is available
-    # if torch.cuda.is_available():
-    #     device = torch.device("cuda")
-    #     print("Using CUDA")
-    # else:
-    device = torch.device("cpu")
-    print("Using CPU")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print("Using CUDA")
+    else:
+        device = torch.device("cpu")
+        print("Using CPU")
 
     # TODO: Check if this is necessary
     # Set the seed for reproducibility

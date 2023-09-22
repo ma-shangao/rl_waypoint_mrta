@@ -55,8 +55,8 @@ class eval_mmtsp:
         model = model_prepare(args)
 
         # Print the number of parameters of the model
-        print('Number of parameters: ',
-              sum(p.numel() for p in model.parameters() if p.requires_grad))
+        # print('Number of parameters: ',
+        #       sum(p.numel() for p in model.parameters() if p.requires_grad))
 
         x = self.data_set
         x = np.expand_dims(x, 0)
@@ -106,8 +106,8 @@ class eval_mmtsp:
         self.model_type = model_type
         self.hidden_dim = hidden_dim
 
-        lower_bound = 2000
-        upper_bound = 31200
+        lower_bound = 3000
+        upper_bound = 29400
 
         step = 200
 
@@ -118,11 +118,12 @@ class eval_mmtsp:
         for i in range(lower_bound, upper_bound + step, step):
             t = time.time()
             try:
-                tours = self.eval_single_instance(
+                cost = self.eval_single_instance(
                     'trained_sessions/' +
                     self.model_type +
                     '/rand_100-' +
                     str(self.cluster_num) +
+                    # '_1e' +
                     '/trained_model/batch' +
                     str(i) +
                     '.pt')
@@ -157,5 +158,5 @@ class eval_mmtsp:
 if __name__ == '__main__':
     sys.path.insert(0, os.getcwd())
     print(sys.path)
-    eval = eval_mmtsp('kroA100')
-    eval.eval_single_instance_with_batch_models(3, 'mlp', 131)
+    eval = eval_mmtsp('kroA200')
+    eval.eval_single_instance_with_batch_models(5, 'moe_mlp', 128)
