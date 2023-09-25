@@ -70,8 +70,8 @@ class eval_decoup:
             raise ValueError('Degeneration detected')
 
     def eval_batch(self):
-        # Setup 10 seeds for kmeans
-        seeds = range(100)
+        # Setup 65 seeds for kmeans
+        seeds = range(65)
         costs = []
         timers = []
         for seed in seeds:
@@ -87,5 +87,5 @@ class eval_decoup:
 
 
 if __name__ == '__main__':
-    eval = eval_decoup('kroA200', 4, 'spectral')
+    eval = eval_decoup('kroA150', 3, 'random')
     eval.eval_batch()

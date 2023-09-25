@@ -70,7 +70,7 @@ def model_prepare(args: argparse.Namespace) -> torch.nn.Module:
         model.train()
     else:
         # load the model
-        model.load_state_dict(torch.load(args.eval_dir))
+        model.load_state_dict(torch.load(args.eval_dir, map_location=torch.device('cpu')))
 
     return model
 
