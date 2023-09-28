@@ -45,24 +45,27 @@ for m in [50, 100]:
     lower_bounds[m] = lower_bound
 
 # Create the plot
-plt.figure(figsize=(8, 6))
+fig, ax = plt.subplots(figsize=(8, 6))
 
 # Plot the average line with shaded area for bounds
 # plt.plot(step, values, label='Cost')
-plt.plot(step, averages[50], color='cornflowerblue', linestyle='-', label='N = 50')
-plt.fill_between(step, lower_bounds[50], upper_bounds[50], color='lightsteelblue', alpha=0.4)
+ax.plot(step, averages[50], color='cornflowerblue', linestyle='-', label=r'$N = 50$')
+ax.fill_between(step, lower_bounds[50], upper_bounds[50], color='lightsteelblue', alpha=0.4)
 
-plt.plot(step, averages[100], color='sandybrown', linestyle='-', label='N = 100')
-plt.fill_between(step, lower_bounds[100], upper_bounds[100], color='peachpuff', alpha=0.4)
+ax.plot(step, averages[100], color='sandybrown', linestyle='-', label=r'$N = 100$')
+ax.fill_between(step, lower_bounds[100], upper_bounds[100], color='peachpuff', alpha=0.4)
 
-# Add labels and legend
-plt.xlabel('Steps')
-plt.ylabel('Cost: total distance travelled')
-# plt.title('RL Training Cost Curves')
-plt.legend()
+# Add labels and legend with custom font and font size
+ax.set_xlabel('Steps', fontname='Arial', fontsize=14)
+ax.set_ylabel('Cost: total distance travelled', fontname='Arial', fontsize=14)
+# ax.set_title('RL Training Cost Curves', fontname='Arial', fontsize=16)
+ax.legend(prop={'family': 'serif', 'size': 14})
+
+# Set font and font size of tick labels
+ax.tick_params(axis='both', which='major', labelsize=12)
 
 # Add grid
-plt.grid(alpha=0.3)
+ax.grid(alpha=0.3)
 
 # Show the plot
 plt.show()
