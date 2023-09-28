@@ -3,3 +3,4 @@ logs/
 */__pycache__/
 fig/
 __pycache__/
+nohup.out

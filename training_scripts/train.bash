@@ -1,4 +1,8 @@
 #!/bin/bash
+# Copyright 2023 MA Song at UCL FRL
+
+# nohup bash -c "source training_scripts/train.bash" &
+
 source .venv/bin/activate
 python main.py \
             --train \
@@ -7,5 +11,4 @@ python main.py \
             --batch_size 1024 \
             --model_type moe_mlp \
             --hidden_dim 128 \
-            --n_component 1 \
             --checkpoint_interval 10

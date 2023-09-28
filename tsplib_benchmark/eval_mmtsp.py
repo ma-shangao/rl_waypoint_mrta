@@ -106,8 +106,8 @@ class eval_mmtsp:
         self.model_type = model_type
         self.hidden_dim = hidden_dim
 
-        lower_bound = 3000
-        upper_bound = 29400
+        lower_bound = 5000
+        upper_bound = 17800
 
         step = 200
 
