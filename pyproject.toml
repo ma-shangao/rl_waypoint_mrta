@@ -1,0 +1,23 @@
+[project]
+name = "rl-waypoint-mrta"
+version = "0.1.0"
+description = "Add your description here"
+readme = "readme.md"
+requires-python = ">=3.9,< 3.10"
+dependencies = [
+    "ipykernel>=6.29.5",
+    "matplotlib>=3.9.4",
+    "numpy<2.0.0",
+    "pyqt6>=6.9.0",
+    "scikit-learn>=1.6.1",
+    "sko>=0.5.7",
+    "spektral>=1.3.1",
+    "tensorboard~=2.12.1",
+    "torch<=2.4.1",
+    "torch-geometric>=2.6.1",
+    "torch-tb-profiler>=0.4.3",
+    "torchaudio<=2.4.1",
+    "torchvision<=0.22.0",
+    "tqdm>=4.67.1",
+    "tsplib95==0.7.1",
+]
