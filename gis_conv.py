@@ -28,6 +28,11 @@ class RiverTestAlloc:
         self.gu = GPS_utils()
         self.gu.setENUorigin(51.4630214, -0.3177539, 0.0)
 
+    def getLonlatFromTxt(self, filename):
+        f = open(filename, "r")
+        lon_lat = np.loadtxt(f, delimiter=',')
+        self.lon_lat = lon_lat[:, 0:2]
+
     def geo2enuconv(self):
         enu_array = np.zeros((len(self.lon_lat), 2))
         for i in range(len(self.lon_lat)):
@@ -46,7 +51,7 @@ class RiverTestAlloc:
         # Make sure the dir ./tmp/mav exists
         pathlib.Path('./tmp/mav').mkdir(parents=True, exist_ok=True)
 
-        eval = EvalInstance(problem_data_dir='enu_array.npy')
+        eval = EvalInstance(problem_data_dir='enu_array.npy', viz=True)
         tours = eval.eval_single_instance_with_batch_models(3, 'moe_mlp', 128)
         # Convert the tours to geo coordinates
         for i in range(len(tours)):
@@ -65,5 +70,7 @@ class RiverTestAlloc:
 
 if __name__ == '__main__':
     rt = RiverTestAlloc()
-    # rt.geo2enuconv()
+    rt.getLonlatFromTxt("/home/masong/richmond202505/waypoints/51.txt")
+    print(rt.lon_lat.shape)
+    rt.geo2enuconv()
     rt.write_waypoints_mav_mission()
