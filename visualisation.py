@@ -83,10 +83,11 @@ def plot_the_clustering_2d_with_cycle(cluster_num,
         clusters_fig.show()
     elif showcase_mode == 'save':
         clusters_fig.savefig(os.path.join(save_path, 'clustering_showcase_cyc_{}.eps'
-                                          .format(time.asctime(time.localtime()))),
+                                          .format(time.clock_gettime_ns(time.CLOCK_REALTIME))),
                              format='eps')
     elif showcase_mode == 'obj':
         return clusters_fig
+    plt.close(clusters_fig)
 
 
 # from https://discuss.pytorch.org/t/vanishing-gradients/46824/5
