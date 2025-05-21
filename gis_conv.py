@@ -50,6 +50,7 @@ class RiverTestAlloc:
         tours = eval.eval_single_instance_with_batch_models(3, 'moe_mlp', 128)
         # Convert the tours to geo coordinates
         for i in range(len(tours)):
+            # https://mavlink.io/en/file_formats/#mission_plain_text_file
             f = open(f"./tmp/mav/{i}.txt", "w")
             f.write("QGC WPL 110\n")
             # Fake takeoff point
