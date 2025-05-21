@@ -3,6 +3,7 @@
 import numpy as np
 from gps_utils import GPS_utils
 from eval import EvalInstance
+import pathlib
 
 
 class RiverTestAlloc:
@@ -41,19 +42,27 @@ class RiverTestAlloc:
         print(enu_array)
         np.save("enu_array.npy", enu_array)
 
-    def get_waypoints(self):
+    def write_waypoints_mav_mission(self):
+        # Make sure the dir ./tmp/mav exists
+        pathlib.Path('./tmp/mav').mkdir(parents=True, exist_ok=True)
+
         eval = EvalInstance(problem_data_dir='enu_array.npy')
         tours = eval.eval_single_instance_with_batch_models(3, 'moe_mlp', 128)
         # Convert the tours to geo coordinates
         for i in range(len(tours)):
+            f = open(f"./tmp/mav/{i}.txt", "w")
+            f.write("QGC WPL 110\n")
+            # Fake takeoff point
+            f.write("0\t0\t0\t16\t0\t0\t0\t0\t51.4630214\t-0.3177539\t0.0\t1\n")
             tour = tours[i]
             for j in range(len(tour)):
                 x_enu, y_enu = tour[j]
                 lon, lat, hgt = self.gu.enu2geo(x_enu, y_enu, 0.0)
                 print(f"Tour {i}, Waypoint {j}: Geo: {lon}, {lat}, {hgt}")
+                f.write(f"{j+1}\t0\t3\t16\t2\t0\t0\t0\t{lon[0]}\t{lat[0]}\t{hgt[0]}\t1\n")
 
 
 if __name__ == '__main__':
     rt = RiverTestAlloc()
     # rt.geo2enuconv()
-    rt.get_waypoints()
+    rt.write_waypoints_mav_mission()
