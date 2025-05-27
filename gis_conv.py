@@ -71,7 +71,7 @@ class RiverTestAlloc:
 
 if __name__ == '__main__':
     rt = RiverTestAlloc()
-    rt.getLonlatFromTxt("/home/masong/richmond202505/waypoints/otter.txt")
+    rt.getLonlatFromTxt("tmp/richmond202505/waypoints/otter.txt")
     print(rt.lon_lat.shape)
     rt.geo2enuconv()
     rt.write_waypoints_mav_mission()
