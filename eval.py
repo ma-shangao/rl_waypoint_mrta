@@ -13,14 +13,14 @@ from visualisation import plot_the_clustering_2d_with_cycle
 
 class EvalInstance:
 
-    def __init__(self, problem_name: Optional[str] = None, problem_data_dir: Optional[str] = None):
+    def __init__(self, problem_name: Optional[str] = None, problem_data_dir: Optional[str] = None, viz: bool = False):
         self.data_set = []
         self.problem = None
         self.city_num = None
         self.model_type = None
         self.cluster_num = None
         self.hidden_dim = None
-        self.viz = False
+        self.viz = viz
 
         if problem_name is None:
             if problem_data_dir is None:

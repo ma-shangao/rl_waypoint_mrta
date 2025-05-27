@@ -3,6 +3,7 @@
 import numpy as np
 from gps_utils import GPS_utils
 from eval import EvalInstance
+import pathlib
 
 
 class RiverTestAlloc:
@@ -27,6 +28,12 @@ class RiverTestAlloc:
         self.gu = GPS_utils()
         self.gu.setENUorigin(51.4630214, -0.3177539, 0.0)
 
+    def getLonlatFromTxt(self, filename):
+        f = open(filename, "r")
+        lon_lat = np.loadtxt(f, delimiter=',')
+        self.lon_lat = lon_lat[:, 0:2]
+        self.gu.setENUorigin(lon_lat[0, 1], lon_lat[0, 0], 0.0)
+
     def geo2enuconv(self):
         enu_array = np.zeros((len(self.lon_lat), 2))
         for i in range(len(self.lon_lat)):
@@ -41,19 +48,30 @@ class RiverTestAlloc:
         print(enu_array)
         np.save("enu_array.npy", enu_array)
 
-    def get_waypoints(self):
-        eval = EvalInstance(problem_data_dir='enu_array.npy')
+    def write_waypoints_mav_mission(self):
+        # Make sure the dir ./tmp/mav exists
+        pathlib.Path('./tmp/mav').mkdir(parents=True, exist_ok=True)
+
+        eval = EvalInstance(problem_data_dir='enu_array.npy', viz=True)
         tours = eval.eval_single_instance_with_batch_models(3, 'moe_mlp', 128)
         # Convert the tours to geo coordinates
         for i in range(len(tours)):
+            # https://mavlink.io/en/file_formats/#mission_plain_text_file
+            f = open(f"./tmp/mav/{i}.txt", "w")
+            f.write("QGC WPL 110\n")
+            # Fake takeoff point
+            f.write("0\t0\t0\t16\t0\t0\t0\t0\t51.4630214\t-0.3177539\t0.0\t1\n")
             tour = tours[i]
             for j in range(len(tour)):
                 x_enu, y_enu = tour[j]
                 lon, lat, hgt = self.gu.enu2geo(x_enu, y_enu, 0.0)
                 print(f"Tour {i}, Waypoint {j}: Geo: {lon}, {lat}, {hgt}")
+                f.write(f"{j+1}\t0\t3\t16\t2\t0\t0\t0\t{lon[0]}\t{lat[0]}\t{hgt[0]}\t1\n")
 
 
 if __name__ == '__main__':
     rt = RiverTestAlloc()
-    # rt.geo2enuconv()
-    rt.get_waypoints()
+    rt.getLonlatFromTxt("tmp/richmond202505/waypoints/otter.txt")
+    print(rt.lon_lat.shape)
+    rt.geo2enuconv()
+    rt.write_waypoints_mav_mission()
