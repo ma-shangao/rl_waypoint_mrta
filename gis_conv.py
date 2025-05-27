@@ -32,6 +32,7 @@ class RiverTestAlloc:
         f = open(filename, "r")
         lon_lat = np.loadtxt(f, delimiter=',')
         self.lon_lat = lon_lat[:, 0:2]
+        self.gu.setENUorigin(lon_lat[0, 1], lon_lat[0, 0], 0.0)
 
     def geo2enuconv(self):
         enu_array = np.zeros((len(self.lon_lat), 2))
@@ -70,7 +71,7 @@ class RiverTestAlloc:
 
 if __name__ == '__main__':
     rt = RiverTestAlloc()
-    rt.getLonlatFromTxt("/home/masong/richmond202505/waypoints/51.txt")
+    rt.getLonlatFromTxt("/home/masong/richmond202505/waypoints/otter.txt")
     print(rt.lon_lat.shape)
     rt.geo2enuconv()
     rt.write_waypoints_mav_mission()
