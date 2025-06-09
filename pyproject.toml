@@ -17,7 +17,7 @@ dependencies = [
     "torch-geometric>=2.6.1",
     "torch-tb-profiler>=0.4.3",
     "torchaudio<=2.4.1",
-    "torchvision<=0.22.0",
+    "torchvision<=0.22.1",
     "tqdm>=4.67.1",
     "tsplib95==0.7.1",
 ]
